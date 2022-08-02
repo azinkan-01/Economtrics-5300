@@ -9,22 +9,129 @@ output: html_document
 knitr::opts_chunk$set(echo = TRUE)
 ```
 
-## R Markdown
+## RESEARCH QUESTION:
 
-This is an R Markdown document. Markdown is a simple formatting syntax for authoring HTML, PDF, and MS Word documents. For more details on using R Markdown see <http://rmarkdown.rstudio.com>.
+The College Scorecard was released at the start of September 2015. Among colleges that predominantly grant bachelor’s degrees, did the release of the Scorecard shift student interest to high-earnings colleges relative to low-earnings ones (as proxied by Google searches for keywords associated with those colleges)?
 
-When you click the **Knit** button a document will be generated that includes both content as well as the output of any embedded R code chunks within the document. You can embed an R code chunk like this:
+REQ:
+- You will need to produce at least one regression and one graph for your analysis, and explain them.
 
-```{r cars}
-summary(cars)
+
+```{}
+# Load initial packages
+library(tidyverse)
+library(ggplot2)
+library(dplyr)
+library(vtable)
+library(fixest)
 ```
 
-## Including Plots
-
-You can also embed plots, for example:
-
-```{r pressure, echo=FALSE}
-plot(pressure)
+### Load Raw Data
+```{}
+DataDictRaw <-  read_csv("Data_Exploration/CollegeScorecardDataDictionary.csv")
+IDNameLinkRaw <- read_csv("Data_Exploration/id_name_link.csv")
+MostRecentRaw <- read_csv("Data_Exploration/Most_Recent_Cohorts_Scorecard_Elements.csv")
+TrendsUpToFinishRaw <- read_csv("Data_Exploration/trends_up_to_finish.csv")
+TrendsUpToInter_1_Raw <- read_csv("Data_Exploration/trends_up_to_inter_1.csv")
+TrendsUpToInter_2_Raw <- read_csv("Data_Exploration/trends_up_to_inter_2.csv")
+TrendsUpToInter_3_Raw <- read_csv("Data_Exploration/trends_up_to_inter_3.csv")
+TrendsUpToInter_4_Raw <- read_csv("Data_Exploration/trends_up_to_inter_4.csv")
+TrendsUpToInter_5_Raw <- read_csv("Data_Exploration/trends_up_to_inter_5.csv")
+TrendsUpToInter_6_Raw <- read_csv("Data_Exploration/trends_up_to_inter_6.csv")
+TrendsUpToUmRaw <- read_csv("Data_Exploration/trends_up_to_UM.csv")
+TrendsUpToUphoenixRaw <- read_csv("Data_Exploration/trends_up_to_UPhoenix.csv")
+TrendsUpToUtRaw <- read_csv("Data_Exploration/trends_up_to_UT.csv")
+TrendsUpToUtmbRaw <- read_csv("Data_Exploration/trends_up_to_UTMB.csv")
+TrendsUpToYorktowneRaw <- read_csv("Data_Exploration/trends_up_to_Yorktowne.csv")
 ```
 
-Note that the `echo = FALSE` parameter was added to the code chunk to prevent printing of the R code that generated the plot.
+## Overview of Data
+
+```{}
+summary(DataDictRaw)
+```
+Notable Observations
+
+- 1295 unique different variables
+- Full Data Dict Available In Apedex()
+
+``` {}
+summary(IDNameLinkRaw)
+
+```
+Data set holds unique ids for the universities searched
+
+- opeid: 8-digit OPE ID for institution
+- unitid: Unit ID for institution
+- schname: the search school name
+
+``` {}
+IDNameLinkRaw %>% 
+  group_by(opeid) %>%
+  summarise(count_unique = n_distinct(opeid)) %>% 
+  arrange(., desc(count_unique))
+```
+Primary Key: both opeid & unitid are primary keys
+
+```{}
+summary(MostRecentRaw)
+
+```
+Data set holds 122 unique variables which are directly associated with out primary key combination
+- opeid: 8-digit OPE ID for institution
+- unitid: Unit ID for institution
+
+Holds a variety of information about the school such as:
+- school type
+- location
+- size
+- admission rate
+- standard entry test score distributions
+- degree ypes awarded
+- race 
+- price
+- etc..
+
+Primary Key: both opeid & unitid are primary keys
+
+``` {}
+summary(TrendsUpToFinishRaw)
+head(TrendsUpToFinishRaw)
+
+```
+Data set holds panel data for each university and key word index rating over time.
+index ranged from 1-100 (this is relative to the school) indexes are not comparable directly
+Primary Key: schid & keynum & monthorweek
+
+
+``` {}
+summary(TrendsUpToInter_1_Raw)
+head(TrendsUpToInter_1_Raw)
+
+```
+``` {}
+summary(TrendsUpToUphoenixRaw)
+head(TrendsUpToUphoenixRaw)
+
+```
+TrendsUpToInter_1_Raw - 6 are identical sets buts account for different schools.
+These tables are also the same structure but represent different school sets
+
+- TrendsUpToUmRaw
+- TrendsUpToUphoenixRaw
+- TrendsUpToUtRaw
+- TrendsUpToUtmbRaw
+- TrendsUpToYorktowneRaw
+- unioned Data sets 1-6 would make full set of TrendsUpToInter Data
+
+Data set holds panel data for each university and key word index rating over time.
+index ranged from 1-100 (this is relative to the school) indexes are not comparable directly
+Primary Key: schid & keynum & monthorweek
+
+## EDA
+
+
+
+
+
+
