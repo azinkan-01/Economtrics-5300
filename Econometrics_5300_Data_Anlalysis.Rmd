@@ -134,23 +134,15 @@ Data set holds panel data for each university and key word index rating over tim
 index ranged from 1-100 (this is relative to the school) indexes are not comparable directly
 Primary Key: schid & keynum & monthorweek
 
-# EDA
+## List of interesting variables
+Cost Variables:
 
-### Missing Data
-```{}
-# Finding % of nulls
-MostRecentNA <- map(MostRecentRaw, ~mean(is.na(.)))
-MostRecentNA
+```{r, echo = TRUE}
+df <- DataDictRaw %>% 
+  select(NAME.OF.DATA.ELEMENT, VARIABLE.NAME) %>% 
+  filter(DataDictRaw$dev.category == 'cost') %>% 
+  show()
+  
 ```
 
-We have quite a few columns that have a high proportion of Null values. 
-Some of these these should likely be eliminated from the study unless we have a good reason not to. 
 
-```{}
-# Union the Trends Data
-TrendsAppendedDf <- rbind(TrendsUpToInter_1_Raw, TrendsUpToInter_2_Raw, TrendsUpToInter_3_Raw, TrendsUpToInter_4_Raw, TrendsUpToInter_5_Raw, TrendsUpToInter_6_Raw)
-TrendsAppendedNA <- map(TrendsAppendedDf, ~mean(is.na(.)))
-TrendsAppendedNA
-```
-
-No particularly significant missing data. We'll want to check for this by school though to see if there are any obvious outlines we should should remove. 

@@ -1,0 +1,58 @@
+---
+title: "Econometrics EDA"
+author: "Andrew Zinkan"
+date: "8/1/2022"
+output: html_document
+---
+
+```{r setup, include=FALSE}
+knitr::opts_chunk$set(echo = TRUE)
+```
+
+```{}
+# Load initial packages
+library(tidyverse)
+library(ggplot2)
+library(dplyr)
+library(vtable)
+library(fixest)
+```
+# EDA
+
+### Missing Data
+```{}
+# Finding % of nulls
+MostRecentNA <- map(MostRecentRaw, ~mean(is.na(.)))
+MostRecentNA
+```
+
+We have quite a few columns that have a high proportion of Null values. 
+Some of these these should likely be eliminated from the study unless we have a good reason not to. 
+
+```{}
+# Union the Trends Data
+TrendsAppendedDf <- rbind(TrendsUpToInter_1_Raw, TrendsUpToInter_2_Raw, TrendsUpToInter_3_Raw, TrendsUpToInter_4_Raw, TrendsUpToInter_5_Raw, TrendsUpToInter_6_Raw, TrendsUpToUmRaw, TrendsUpToUphoenixRaw, TrendsUpToUtmbRaw, TrendsUpToUtmbRaw, TrendsUpToYorktowneRaw )
+
+TrendsAppendedNA <- map(TrendsAppendedDf, ~mean(is.na(.)))
+TrendsAppendedNA
+```
+
+No particularly high missing data in Trends.
+
+```{}
+unique_keyword_count <- TrendsAppendedDf %>% 
+  group_by(schname) %>%
+  summarise(count_unique = n_distinct(keyword)) %>% 
+  arrange(., desc(count_unique))
+```
+
+
+Number of unique words beeing tracker per school. Some schools have more words tracked for them than others. 
+```{r, echo = TRUE}
+# Histogram overlaid with kernel density curve
+ggplot(unique_keyword_count, aes(x=count_unique)) + 
+    geom_histogram(aes(y=..density..),      # Histogram with density instead of count on y-axis
+                   binwidth=.5,
+                   colour="black", fill="white") +
+    geom_density(alpha=.2, fill="#FF6666")  # Overlay with transparent density plot
+```
