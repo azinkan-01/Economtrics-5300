@@ -2,16 +2,14 @@
 title: "Econometrics_5300_Data_Anlalysis"
 author: "Andrew Zinkan"
 date: "8/1/2022"
+output: 
+  html_document:
+    df_print: paged
 ---
 
 ```{r setup, include=FALSE}
 knitr::opts_chunk$set(echo = TRUE)
 ```
-
-# Notes
-<!-- fill na with zero -->
-<!-- master_df[is.na(master_df)] <- 0 -->
-
 
 ## RESEARCH QUESTION:
 
@@ -21,7 +19,7 @@ REQ
 - You will need to produce at least one regression and one graph for your analysis, and explain them.
 
 
-```{}
+```{r, results= "hide", message=FALSE, warning=FALSE}
 # Load initial packages
 library(tidyverse)
 library(ggplot2)
@@ -29,9 +27,17 @@ library(dplyr)
 library(vtable)
 library(fixest)
 ```
+# Notes about the data:
+
+- There are multiple keywords per university, and the number of keywords is not the same across universities
+- Google Trends shows the popularity of a given search term in Google over time.
+- Google Trends indices are comparable only to themselves. That is, if the term “boston university” increases from 15 to 16 from one
+week to the next, and the term “seattle university” also went from 15 to 16, then we know that they both increased, but we don’t know if the amount of increase was the same (even though they both increased by 1, that “1” could mean different amounts of searching for Boston U and Seattle U), or that they’re currently both getting the same amount of attention (even though they both end up with 16, that could mean wildly different amounts of searches for Boston and for Seattle). You can make the indices reasonably comparable by standardizing them (for each term, subtract the mean and divide by the standard deviation).
+There are multiple universities that share the same schname, which will mess up your ability to link Scorecard data to Google Trends data but for this assignment I will allow you to just drop all universities that share an exact name with another university.
+
 
 ### Load Raw Data
-```{}
+```{r, results= "hide", message=FALSE, warning=FALSE}
 # Striping the Nulls to NA Values
 DataDictRaw <-  read.csv("Data_Exploration/CollegeScorecardDataDictionary.csv", na.strings = c("","NA","NULL",NULL))
 IDNameLinkRaw <- read.csv("Data_Exploration/id_name_link.csv", na.strings = c("","NA","NULL",NULL))
@@ -52,7 +58,7 @@ TrendsUpToYorktowneRaw <- read.csv("Data_Exploration/trends_up_to_Yorktowne.csv"
 
 ## Overview of Data
 
-```{}
+```{r, results= "hide", message=FALSE, warning=FALSE}
 summary(DataDictRaw)
 ```
 Notable Observations
@@ -60,17 +66,17 @@ Notable Observations
 - 1295 unique different variables
 - Full Data Dict Available In Apedex()
 
-``` {}
+``` {r}
 summary(IDNameLinkRaw)
 
 ```
-Data set holds unique ids for the universities searched
+Data set holds unique ids for the universities searched which can be used to match colleges as identified in the Scorecard data (by unitid and opeid / UNITID and OPEID) with colleges as identified in the Google Trends data (by schname)
 
 - opeid: 8-digit OPE ID for institution
 - unitid: Unit ID for institution
 - schname: the search school name
 
-``` {}
+``` {r, results= "hide", message=FALSE, warning=FALSE}
 IDNameLinkRaw %>% 
   group_by(opeid) %>%
   summarise(count_unique = n_distinct(opeid)) %>% 
@@ -78,7 +84,7 @@ IDNameLinkRaw %>%
 ```
 Primary Key: both opeid & unitid are primary keys
 
-```{}
+```{r, results= "hide", message=FALSE, warning=FALSE}
 summary(MostRecentRaw)
 
 ```
@@ -86,7 +92,10 @@ Data set holds 122 unique variables which are directly associated with out prima
 - opeid: 8-digit OPE ID for institution
 - unitid: Unit ID for institution
 
+This is data from the College Scorecard, a simple dataset that contains lots of information about United States colleges and the students that graduate from them.
+
 Holds a variety of information about the school such as:
+
 - school type
 - location
 - size
@@ -99,25 +108,32 @@ Holds a variety of information about the school such as:
 
 Primary Key: both opeid & unitid are primary keys
 
-``` {}
+``` {r, results= "hide", message=FALSE, warning=FALSE}
 summary(TrendsUpToFinishRaw)
-head(TrendsUpToFinishRaw)
 
 ```
+
+```{r}
+head(TrendsUpToFinishRaw)
+```
 Data set holds panel data for each university and key word index rating over time.
-index ranged from 1-100 (this is relative to the school) indexes are not comparable directly
+Index ranged from 1-100 (this is relative to the school) indexes are not comparable directly
+
 Primary Key: schid & keynum & monthorweek
+
 ** NOTE: Schid is not a unique value across similar panel data sets
 
 
-``` {}
+``` {r, message=FALSE, warning=FALSE}
 summary(TrendsUpToInter_1_Raw)
-head(TrendsUpToInter_1_Raw)
+summary(TrendsUpToUphoenixRaw)
 
 ```
-``` {}
-summary(TrendsUpToUphoenixRaw)
+``` {r}
+
+head(TrendsUpToInter_1_Raw)
 head(TrendsUpToUphoenixRaw)
+
 
 ```
 TrendsUpToInter_1_Raw - 6 are identical sets buts account for different schools.
@@ -132,17 +148,110 @@ These tables are also the same structure but represent different school sets
 
 Data set holds panel data for each university and key word index rating over time.
 index ranged from 1-100 (this is relative to the school) indexes are not comparable directly
+
+`trends_up_to_....csv`: These are files generated using Google Trends. They are the Google Trends index for each keyword for the given monthorweek. Each keyword (indexed with keynum) is selected to be reflective of a university in the United States, given by schname. There are multiple files because the Google Trends API will kick you off if you make too many requests, and you have to start again.
+
 Primary Key: schid & keynum & monthorweek
 
-## List of interesting variables
-Cost Variables:
+## List of Interesting variables
+Variables available for this data set are broken up by the following variables types:
+```{r, echo = FALSE}
+DataDictRaw %>% 
+  select(dev.category) %>% 
+  group_by(dev.category) %>% 
+  summarise()
 
-```{r, echo = TRUE}
-df <- DataDictRaw %>% 
+```
+### Academic Variables:
+
+```{r, echo = FALSE }
+DataDictRaw %>% 
   select(NAME.OF.DATA.ELEMENT, VARIABLE.NAME) %>% 
-  filter(DataDictRaw$dev.category == 'cost') %>% 
-  show()
+  filter(DataDictRaw$dev.category == 'academics')
   
 ```
+### Admission Variables:
+
+```{r, echo = FALSE}
+DataDictRaw %>% 
+  select(NAME.OF.DATA.ELEMENT, VARIABLE.NAME) %>% 
+  filter(DataDictRaw$dev.category == 'admissions')
+  
+```
+### Aid Variables:
+
+```{r, echo = FALSE}
+DataDictRaw %>% 
+  select(NAME.OF.DATA.ELEMENT, VARIABLE.NAME) %>% 
+  filter(DataDictRaw$dev.category == 'aid')
+  
+```
+### Completion Variables:
+
+```{r, echo = FALSE}
+DataDictRaw %>% 
+  select(NAME.OF.DATA.ELEMENT, VARIABLE.NAME) %>% 
+  filter(DataDictRaw$dev.category == 'completion')
+  
+```
+
+### Cost Variables:
+
+```{r, echo = FALSE }
+DataDictRaw %>% 
+  select(NAME.OF.DATA.ELEMENT, VARIABLE.NAME) %>% 
+  filter(DataDictRaw$dev.category == 'cost')
+  
+```
+
+### Earning Variables:
+
+```{r, echo = FALSE}
+DataDictRaw %>% 
+  select(NAME.OF.DATA.ELEMENT, VARIABLE.NAME) %>% 
+  filter(DataDictRaw$dev.category == 'earnings')
+  
+```
+
+### Repayment Variables:
+
+```{r, echo = FALSE}
+DataDictRaw %>% 
+  select(NAME.OF.DATA.ELEMENT, VARIABLE.NAME) %>% 
+  filter(DataDictRaw$dev.category == 'repayment')
+
+  
+```
+
+### School Variables:
+
+```{r, echo = FALSE}
+DataDictRaw %>% 
+  select(NAME.OF.DATA.ELEMENT, VARIABLE.NAME) %>% 
+  filter(DataDictRaw$dev.category == 'school')
+  
+```
+### Student Variables:
+
+```{r, echo = FALSE}
+DataDictRaw %>% 
+  select(NAME.OF.DATA.ELEMENT, VARIABLE.NAME) %>% 
+  filter(DataDictRaw$dev.category == 'student')
+  
+```
+
+### Missing Data
+```{r, echo = FALSE}
+# Finding % of nulls
+MostRecentNA <- map(MostRecentRaw, ~mean(is.na(.)))
+
+```
+### Variables of interest:
+
+percentage Of degrees Awarded: PCIP{1-54}
+bachelors degrees by subject: CIP26BACHL, CIP25BACHL etc.
+Admissions Rates Variables/ SAT/ & ACT scores
+Google Search volums
+
 
 
