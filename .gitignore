@@ -3,4 +3,5 @@
 .RData
 .Ruserdata
 Data_Exploration/
+Generated_data/
 *.csv
