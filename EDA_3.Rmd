@@ -11,14 +11,14 @@ knitr::opts_chunk$set(echo = TRUE)
 
 ```{r, ech0 = FALSE, results= "hide", message=FALSE, warning=FALSE}
 # Load initial packages
-install.packages('timetk')
+# install.packages('timetk')
 library(tidyverse)
 library(ggplot2)
 library(dplyr)
 library(vtable)
 library(fixest)
 library(Hmisc)
-library(timetk)
+# library(timetk)
 library(tidyr)
 ```
 
@@ -35,6 +35,7 @@ google_trends_master <- google_trends_master %>%
   mutate(end_of_week = as.Date(end_of_week, format="%Y-%m-%d"))
   
 ```
+
 
 ## Describe data
 #### _Google Trends_
@@ -59,6 +60,7 @@ print(di[7:9])
 di <- describe(google_trends_master)
 print(di[11])
 ```
+
 ```{r, echo=FALSE, results= "hide", warning = FALSE}
 
 # plot density for the index rankings
@@ -66,20 +68,48 @@ ggplot(google_trends_master, aes(x= as.numeric(index), fill=after_score_card, al
   geom_density()
 
 ```
+No major change in distributions of indexing before vs after score card release
 
 ```{r, echo=FALSE, results= "hide", warning = FALSE}
 
-
+# plot density for the index rankings
+ggplot(google_trends_master, aes(x= as.numeric(standard_idx), fill=after_score_card, alpha = 0.4)) + 
+  geom_density()
 
 ```
+No major change in distributions of indexing before vs after score card release
+
+
+
 
 ## index over time
 
 ```{r}
-# plot 
-
+# explore/ descried good data more and chose level of detail 
 ```
 
+#### _ school master data_
+
+```{r}
+# what ever i do for google do for schools  
+```
+
+#### _Vars of interest
+```{r}
+# find all variables of interest (do missing null % here)
+```
+
+#### Join the final df at whatever level of detail is needed for mastereed set
+```{r}
+# Make the final data set and provide reasoning  
+```
+
+#### _add features_ 
+
+```{r}
+# then add features, interactions, strip month, look for difference or change in metrics each week 
+# This section we'll identify high earning school/ how and why, etc.  
+```
 
 ## Identify "high-earning" and "low-earning" Earning Schools
 Our research questions states “high-earning” vs “low-earning” colleges earning, so how can we define “high” vs “low”?
@@ -164,10 +194,13 @@ shool_master <- shool_master %>%
                              TRUE ~ 'High'))
 
 ```
+#### _modeling_
+```{r}
+# start modeling (use what you have learned in class)
+# plots and scatter plots
+```
 
-
-
-### Missing Data
+### Missing Data This should go up as part of  variable selection
 ```{r}
 # Finding % of nulls
 # MostRecentNA <- map(MostRecentRaw, ~mean(is.na(.)))
