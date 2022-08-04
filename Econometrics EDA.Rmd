@@ -1,5 +1,5 @@
 ---
-title: "Econometrics EDA"
+title: "Data Transformation"
 author: "Andrew Zinkan"
 date: "8/1/2022"
 output: html_document
@@ -19,28 +19,25 @@ library(fixest)
 library(tidyr)
 ```
 
-##  Restatment RESEARCH QUESTION:
+###  Restated Question:
 
 The College Scorecard was released at the start of September 2015. Among colleges that predominantly grant bachelor’s degrees, did the release of the Scorecard shift student interest to high-earnings colleges relative to low-earnings ones (as proxied by Google searches for keywords associated with those colleges)?
 
-REQ
+REQ:
+
 - You will need to produce at least one regression and one graph for your analysis, and explain them.
 
-# TODO
-
- - drop all universities that share an exact name with another university. (DONE)
- - make the indices reasonably comparable by standardizing them (for each term, subtract the mean and divide by the standard deviation) (DONE)
- - select colleges that predominantly grant bachelor’s degrees (DONE)
- - set a score card binary for before and after the start of September 2015 (DONE)
- - median earnings of graduates ten years after graduation for each college. But how can we define “high-earning” and “low-earning” colleges? There’s not a single answer - be ready to defend your choice.
+#### Recommended Data Cleaning
  - What level should the data be at? You can leave the data as is, with one row per week per keyword. Or group_by and summarize to put things to one week per college, or one month per college, or one month per keyword, etc. etc.
+    - lets group by college, keyword and week. we need to keep college to tie back what colleges and associated measues imapct searches, we'll group by week as the index is recorded is weekly intervals (keep more data granularity), and we'll do it by keyword as we dont have way to really add or average index across keys as they are not dirrectly comparable. 
 
-# Munge
+
 ```{r, echo = FALSE, results= "hide", message=FALSE, warning=FALSE}
+# Running the raw data
 # Striping the Nulls to NA Values
 DataDictRaw <-  read.csv("Data_Exploration/CollegeScorecardDataDictionary.csv", na.strings = c("","NA","NULL",NULL))
 IDNameLinkRaw <- read.csv("Data_Exploration/id_name_link.csv", na.strings = c("","NA","NULL",NULL))
-MostRecentRaw <- read.csv("Data_Exploration/Most_Recent_Cohorts_Scorecard_Elements.csv", na.strings = c("","NA","NULL",NULL))
+ScoreCardDataRaw <- read.csv("Data_Exploration/Most_Recent_Cohorts_Scorecard_Elements.csv", na.strings = c("","NA","NULL",NULL))
 TrendsUpToFinishRaw <- read.csv("Data_Exploration/trends_up_to_finish.csv", na.strings = c("","NA","NULL",NULL))
 TrendsUpToInter_1_Raw <- read.csv("Data_Exploration/trends_up_to_inter_1.csv", na.strings = c("","NA","NULL",NULL))
 TrendsUpToInter_2_Raw <- read.csv("Data_Exploration/trends_up_to_inter_2.csv", na.strings = c("","NA","NULL",NULL))
@@ -54,72 +51,213 @@ TrendsUpToUtRaw <- read.csv("Data_Exploration/trends_up_to_UT.csv", na.strings =
 TrendsUpToUtmbRaw <- read.csv("Data_Exploration/trends_up_to_UTMB.csv", na.strings = c("","NA","NULL",NULL))
 TrendsUpToYorktowneRaw <- read.csv("Data_Exploration/trends_up_to_Yorktowne.csv", na.strings = c("","NA","NULL",NULL))
 ```
+## Data Transformation for Score Card Data
 
-### Drop universities that share an exact name with another university
+#### _Drop opeid's that are not unique observations_
+This is in an effort to remove any `many to one` relationships when joining OPEID
+```{r}
+Unique_opeid <- ScoreCardDataRaw %>% 
+  select(OPEID) %>% 
+  group_by(OPEID) %>% 
+  summarise(count_rec = n())%>% 
+  filter(count_rec == 1) %>% 
+  arrange(., desc(count_rec))
+
+
+# create filter for unique ids
+Unique_opeid_filter <- Unique_opeid$OPEID
+
+# filter raw set by the opeids that have unique names
+ScoreCardDataStage <- filter(ScoreCardDataRaw, OPEID %in% Unique_opeid_filter)
+
+```
+7804 records -> 7738 records
+
+
+#### _Remove "PrivacySuppressed" earnings data_
+This data is directly related to college earnings (our dependent variable), thus we will want to use only known values to regress on. 
+Null values in this field don't shed any light on how different independent variables impact an unknown depended variable. 
+```{r}
+# Remove "PrivacySuppressed" data 
+NotSuppressed <- ScoreCardDataStage %>% 
+  select(OPEID, md_earn_wne_p10.REPORTED.EARNINGS) %>% 
+  filter(md_earn_wne_p10.REPORTED.EARNINGS != c("PrivacySuppressed"))
+
+# create filter for unique ids
+NotSuppressed_filter <- NotSuppressed$OPEID
+
+# Remove Suppressed Earnings Data
+ScoreCardDataStage <- filter(ScoreCardDataStage, OPEID %in% NotSuppressed_filter)
+```
+7738 records -> 5584 records
+2154 records removed
+
+#### _Drop Null values in earnings data_
+Want to drop null values for the same reason we want to drop the suppressed data 
 
 ```{r}
-IDNameLinkRaw_Name_Count <- IDNameLinkRaw %>% 
+NotNull <- ScoreCardDataStage %>% 
+  select(OPEID, md_earn_wne_p10.REPORTED.EARNINGS) %>% 
+  filter(!is.na(md_earn_wne_p10.REPORTED.EARNINGS))
+
+# create filter for unique ids
+NotNull_Filter <- NotNull$OPEID
+
+# Remove Suppressed Earnings Data
+ScoreCardDataStage <- filter(ScoreCardDataStage, OPEID %in% NotNull_Filter)
+```
+5584 records -> 5584 records
+
+#### _Data Cleaning_
+```{r}
+ScoreCardDataStage <- ScoreCardDataStage %>% 
+  mutate(md_earn_wne_p10.REPORTED.EARNINGS = as.numeric(ScoreCardDataStage$md_earn_wne_p10.REPORTED.EARNINGS))
+
+ScoreCardDataStage <- ScoreCardDataStage %>%
+  rename(opeid = OPEID,  
+         unitid = UNITID, 
+         md_reported_ern_10yr = md_earn_wne_p10.REPORTED.EARNINGS)
+
+```
+
+
+
+## Data Transformation For School Link Data
+
+#### _Drop non unique opeid's_
+Identify opeid's with more than one unique school name
+many to 1 relationship with opeid (want to cut that out)
+
+```{r}
+Unique_Shools <- IDNameLinkRaw %>% 
   select(opeid, schname) %>% 
   group_by(opeid) %>% 
   summarise(count_unique = n_distinct(schname))%>% 
   arrange(., desc(count_unique)) %>% 
-  filter(count_unique < 2)
+  filter(count_unique == 1)
 
-shool_filter <- IDNameLinkRaw_Name_Count$opeid
+# create filter for unique ids
+shool_filter <- Unique_Shools$opeid
 
+# filter raw set by the opeids that have unique names
 IDNameLinkStage <- filter(IDNameLinkRaw, opeid %in% shool_filter)
 ```
-This results in 3557 with 38 universities removed
+Starting with 3595 Schools
+Our first filter results in 3557 remaining schools
+38 universities removed
 
-### Select colleges that offer primary bachelor degrees
+#### _Drop non unique universities names_
 ```{r}
-Bachelors_primary <- MostRecentRaw %>% 
-  select(OPEID, PREDDEG) %>% 
+# Identify names that have more than one opeid
+unique_ids <- IDNameLinkRaw %>% 
+  select(opeid, schname) %>% 
+  group_by(schname) %>% 
+  summarise(count_unique = n_distinct(opeid))%>% 
+  arrange(., desc(count_unique)) %>% 
+  filter(count_unique < 2)
+
+# create filter for unique ids
+shool_filter <- unique_ids$schname
+
+# apply another filter to staged set by filtering the opeids that have unique names
+IDNameLinkStage <- filter(IDNameLinkStage, schname %in% shool_filter)
+```
+This filter results in 3486 records, removing an additional 71 universities. 
+
+
+#### _Filter bachelor degree colleges_
+Selecting Bachelors Primary Schools & Bachelors Only Schools
+Bachelors Only Schools are by default Bachelors Primary
+```{r}
+# Selecting Bachelors Primary Schools & Bachelors Only Schools
+# Bachelors Only Schools are by default Bachelors Primary
+Bachelors_primary <- ScoreCardDataStage %>% 
+  select(opeid, PREDDEG) %>% 
   filter(PREDDEG >= 3)
 
-bach_filter <- Bachelors_primary$OPEID
+# create filter for unique ids
+bach_filter <- Bachelors_primary$opeid
 
-MostRecentStage <- filter(MostRecentRaw, OPEID %in% bach_filter)
-
-#Remove privacy suppressed data
-MostRecentStage <- filter(MostRecentStage, md_earn_wne_p10.REPORTED.EARNINGS != c("PrivacySuppressed"))
-
-# Drop NA if there are any
-MostRecentStage <- MostRecentStage %>% 
-  drop_na(md_earn_wne_p10.REPORTED.EARNINGS)
-
-# Make contiuouse
-
-
+# Remove non bachelors from our master id list
+IDNameLinkStage <- filter(IDNameLinkStage, opeid %in% bach_filter)
 ```
+This filter results in 1999 records, removing an additional 1487 universities.
 
-### Make Indices reasonably comparable
-```{r, echo = FALSE, results= "hide", message=FALSE, warning=FALSE}
+#### _Drop "PrivacySuppressed" earnings_
+This data is directly related to college earnings (our dependent variable), thus we will want to use only known values to regress on. 
+Null values in this field dont shed any light on how different independent variables impact an unknown depended variable. 
+```{r}
+# Remove "PrivacySuppressed" data 
+NotSuppressed <- ScoreCardDataStage %>% 
+  select(opeid, md_reported_ern_10yr) %>% 
+  filter(md_reported_ern_10yr != c("PrivacySuppressed"))
+
+# create filter for unique ids
+NotSuppressed_filter <- NotSuppressed$opeid
+
+# Remove Suppressed Earnings Data
+IDNameLinkStage <- filter(IDNameLinkStage, opeid %in% NotSuppressed_filter)
+```
+This filter results in 1804 records, removing an additional 195 universities.
+
+#### _Drop Null earnings_
+Want to drop null values for the same reason we want to drop the suppressed data 
+
+```{r}
+NotNull <- ScoreCardDataStage %>% 
+  select(opeid, md_reported_ern_10yr) %>% 
+  filter(!is.na(md_reported_ern_10yr))
+
+# create filter for unique ids
+NotNull_Filter <- NotNull$opeid
+
+# Remove Suppressed Earnings Data
+IDNameLinkStage <- filter(IDNameLinkStage, opeid %in% NotNull_Filter)
+```
+This filter results in 1804 records, removing an additional 0 universities.
+
+## Data Transformation Trend data
+
+#### _Make Indices reasonably comparable_
+union all the Trends Data as one dataframe
+```{r, results= "hide", message=FALSE, warning=FALSE}
 # Union the Trends Data
 TrendsAppendedDf <- rbind(TrendsUpToInter_1_Raw, TrendsUpToInter_2_Raw, TrendsUpToInter_3_Raw, TrendsUpToInter_4_Raw, TrendsUpToInter_5_Raw, TrendsUpToInter_6_Raw, TrendsUpToUmRaw, TrendsUpToUphoenixRaw, TrendsUpToUtmbRaw, TrendsUpToUtmbRaw, TrendsUpToYorktowneRaw, TrendsUpToFinishRaw )
 ```
 
-```{r, echo = FALSE, message=FALSE, warning=FALSE}
+#### _Drop Duplicates_
+because this is API generated trends data that has breaks when to many requests are generateed its very possible we have duplicate results. schid as it provided no meaning.
+```{r}
+# Select remove the schid field (non unique) and no relationship
+Trends <- TrendsAppendedDf %>% 
+  select( -c("schid"))
+
+Trends <- Trends %>% 
+  distinct()
+```
+This does in fact remove many duplicate records (30894)
+
+
+```{r, message=FALSE, warning=FALSE}
 # Key Level Mean
-key_level_idx <- TrendsAppendedDf %>% 
+key_level_idx <- Trends %>% 
   select(schname,keyword,index, ) %>% 
   group_by(schname,keyword) %>% 
   summarise(mean_index = mean(index), 
             std_index = sd(index))
 
 # Join raw and idk level
-TrendsWMean <- TrendsAppendedDf %>% 
+Trends <- Trends %>% 
   inner_join(key_level_idx, by = c("schname", "keyword")) %>% 
-  select(schid,schname, keyword, monthorweek, index, mean_index, std_index) %>%
+  select(schname, keyword, monthorweek, index, mean_index, std_index) %>%
   mutate(idx_minus_mean = index-mean_index, standard_idx = idx_minus_mean/std_index)
 
-head(TrendsWMean)
 ```
-### Munge Dates
+#### _Fix Dates_
 Score card was added beginning of sept 2015
 ```{r, message=FALSE, warning=FALSE}
 # separate dates
-Trends <- separate(TrendsWMean, col=monthorweek, into=c('start_of_week', 'end_of_week'), sep=' - ')
+Trends <- separate(Trends, col=monthorweek, into=c('start_of_week', 'end_of_week'), sep=' - ')
 head(Trends)
 
 # Convert to date type
@@ -131,101 +269,41 @@ Trends <- Trends %>%
 Trends <- Trends %>% 
   mutate(after_score_card = if_else(start_of_week >= as.Date("2015-09-01", format="%Y-%m-%d"), TRUE, FALSE))
 
-head(Trends)
 ```
 
+## Master Data
 
-### “high-earning” and “low-earning”
-how can we define “high-earning” and “low-earning” colleges?
-Earing Variables of interest:
 
-- mn_earn_wne_p10
-- md_earn_wne_p10-REPORTED-EARNINGS (One that was called to attention for the project)
-- pct10_earn_wne_p10
-- pct25_earn_wne_p10
-- pct75_earn_wne_p10
-- pct90_earn_wne_p10
-- sd_earn_wne_p10
-- count_wne_inc1_p10
-- count_wne_inc2_p10
-- count_wne_inc3_p10
-
-Distribution on earnings among colleges:
+#### _School ID & Metrics_
+Using inner join to ensure that we have a complete data set in terms of unitid and opeid that match across or school key and our school data points.
 ```{r}
-# Histogram overlaid with kernel density curve
-ggplot(MostRecentStage, aes(x=as.numeric(md_earn_wne_p10.REPORTED.EARNINGS))) + 
-    geom_histogram(aes(y=..density..),      # Histogram with density instead of count on y-axis
-                   binwidth=100,
-                   colour="black", fill="white") +
-    geom_density(alpha=.2, fill="#FF6666", stat="count")  # Overlay with transparent density plot
+shool_master <- IDNameLinkStage %>% 
+  inner_join(ScoreCardDataStage, by = c("opeid", "unitid"))
 ```
+
+our final data set for analysis is now comprised of a total of 1798 records by 123 variables. 
 ```{r}
-ggplot(MostRecentStage, aes(x= as.numeric(md_earn_wne_p10.REPORTED.EARNINGS))) + geom_density()
+dim(shool_master)
 ```
+
+#### _Google Trends & School ID_
+Using inner join to ensure that we have a only matching school names across our school id info and our google trends info. 
 ```{r}
-ggplot(MostRecentStage, aes(x= log(as.numeric(md_earn_wne_p10.REPORTED.EARNINGS)))) + geom_density()
+google_trends_master <- IDNameLinkStage %>% 
+  inner_join(Trends, by = c("schname"))
 ```
+
+
+
+## CSV Out Put
+Holding out our mutation steps in this code and producing one school data frame and one goolg etrends data set allows for faster and cleaner downstream modeling. 
 ```{r}
-# create log of earnings
-MostRecentStage <- MostRecentStage %>% 
-  mutate(log_mean_10_yr_earnings = log(as.numeric(md_earn_wne_p10.REPORTED.EARNINGS)))
+write.csv(shool_master, "C:\\Users\\andre\\OneDrive\\R_Projects\\Economtrics-5300\\Generated_data\\shool_master.csv", row.names=FALSE)
 ```
-Everywhere in the data dictionary denotes income levels as the following
-
-- low-income (less than $30,000)
-- middle-income (between $30,000 and $75,000)
-- high-income (above $75,000)
-
-Since this is the standard according to the data dict i decided to use it as well
-```{r}
-
-
-MostRecentStage <- MostRecentStage %>% 
-  mutate(Income_level_standard = case_when(as.numeric(md_earn_wne_p10.REPORTED.EARNINGS) < 30000 ~ 'Low',
-                             as.numeric(md_earn_wne_p10.REPORTED.EARNINGS) > 75000 ~ 'High',
-                             TRUE ~ 'Med'))
-```
-
-### Bring it all together
-
-
-
-
-
-
-
-
-# EDA
-
-### Missing Data
-```{r}
-# Finding % of nulls
-MostRecentNA <- map(MostRecentRaw, ~mean(is.na(.)))
-MostRecentNA
-
-```
-
-We have quite a few columns that have a high proportion of Null values. 
-Some of these these should likely be eliminated from the study unless we have a good reason not to. 
-
-
-
-No particularly high missing data in Trends.
 
 ```{r}
-unique_keyword_count <- TrendsAppendedDf %>% 
-  group_by(schname) %>%
-  summarise(count_unique = n_distinct(keyword)) %>% 
-  arrange(., desc(count_unique))
+write.csv(google_trends_master, "C:\\Users\\andre\\OneDrive\\R_Projects\\Economtrics-5300\\Generated_data\\google_trends_master.csv", row.names=FALSE)
 ```
 
 
-Number of unique words beeing tracker per school. Some schools have more words tracked for them than others. 
-```{r, echo = TRUE}
-# Histogram overlaid with kernel density curve
-ggplot(unique_keyword_count, aes(x=count_unique)) + 
-    geom_histogram(aes(y=..density..),      # Histogram with density instead of count on y-axis
-                   binwidth=.5,
-                   colour="black", fill="white") +
-    geom_density(alpha=.2, fill="#FF6666")  # Overlay with transparent density plot
-```
+
