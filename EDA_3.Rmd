@@ -194,6 +194,7 @@ shool_master <- shool_master %>%
                              TRUE ~ 'High'))
 
 ```
+
 #### _modeling_
 ```{r}
 # start modeling (use what you have learned in class)
