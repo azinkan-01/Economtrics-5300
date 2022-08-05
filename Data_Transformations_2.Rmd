@@ -222,7 +222,6 @@ This filter results in 1804 records, removing an additional 0 universities.
 
 - Double check the index changes
 - use month() from lubridate to pull the month out of your date variable
-- chose aggregation fo trend data
 
 #### _Union All Trend Data_
 union all the Trends Data as one dataframe
@@ -315,7 +314,6 @@ Using inner join to ensure that we have a only matching school names across our 
 google_trends_master <- IDNameLinkStage %>% 
   inner_join(Trends, by = c("schname"))
 ```
-
 
 
 ## CSV Out Put
