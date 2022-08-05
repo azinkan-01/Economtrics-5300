@@ -11,7 +11,7 @@ knitr::opts_chunk$set(echo = TRUE)
 
 ```{r, ech0 = FALSE, results= "hide", message=FALSE, warning=FALSE}
 # Load initial packages
-install.packages("DMwR")
+# install.packages("DMwR")
 library(tidyverse)
 library(ggplot2)
 library(dplyr)
@@ -19,28 +19,25 @@ library(vtable)
 library(fixest)
 library(Hmisc)
 # library(timetk)
-library(DMwR)
+# library(DMwR)
 library(tidyr)
 ```
 
 #### _Load Data Transfromation Files_
 ```{r, results= "hide", message=FALSE, warning=FALSE}
 google_trends_master <-  read.csv("Generated_data/google_trends_master.csv", na.strings = c("","NA","NULL",NULL))
-shool_master <- read.csv("Generated_data/shool_master.csv", na.strings = c("","NA","NULL",NULL))
+school_master <- read.csv("Generated_data/school_master.csv", na.strings = c("","NA","NULL",NULL))
 
 ```
 
 ```{r, echo = FALSE ,results= "hide", message=FALSE, warning=FALSE}
 google_trends_master <- google_trends_master %>% 
-  mutate(start_of_week = as.Date(start_of_week, format="%Y-%m-%d")) %>% 
-  mutate(end_of_week = as.Date(end_of_week, format="%Y-%m-%d"))
+  mutate(start_of_week = as.Date(start_of_week, format="%Y-%m-%d"))
   
 ```
 
-
-## Describe data
-#### _Google Trends_
-
+## Describe Google Trends Data
+why?
 ```{r}
 # schname
 di <- describe(google_trends_master)
@@ -62,6 +59,7 @@ print(di[6:8])
 # normalized index info
 print(di[10:11])
 ```
+
 ```{r}
 # normalized index info
 print(di[9])
@@ -74,11 +72,9 @@ we'll want to adjust our sample to be random and more even distribution of true 
 
 ```{r}
 # Before
-table(google_trends_master$after_score_card)
-
-under_sample <- SMOTE(after_score_card ~ ., google_trends_master, perc.over = 600,perc.under=100)
-
-table(under_sample$after_score_card)
+# table(google_trends_master$after_score_card)
+# under_sample <- SMOTE(after_score_card ~ ., google_trends_master, perc.over = 600,perc.under=100)
+# table(under_sample$after_score_card)
 
 ```
 
@@ -92,7 +88,6 @@ ggplot(google_trends_master, aes(x= as.numeric(index), fill=after_score_card, al
 No major change in distributions of indexing before vs after score card release
 
 ```{r, echo=FALSE, results= "hide", warning = FALSE}
-
 # plot density for the index rankings
 ggplot(google_trends_master, aes(x= as.numeric(standard_idx), fill=after_score_card, alpha = 0.4)) + 
   geom_density()
@@ -100,8 +95,149 @@ ggplot(google_trends_master, aes(x= as.numeric(standard_idx), fill=after_score_c
 ```
 No major change in distributions of indexing before vs after score card release
 
+#### _Select L.O.D for Trends Data
 
-## index over time
+
+```{r}
+unique_keyword_count <- google_trends_master %>% 
+  group_by(schname) %>%
+  summarise(count_unique = n_distinct(keyword)) %>%
+  arrange(., desc(count_unique))
+```
+
+
+Number of unique words beeing tracker per school. Some schools have more words tracked for them than others. 
+```{r, echo = TRUE}
+# Histogram overlaid with kernel density curve
+ggplot(unique_keyword_count, aes(x=count_unique)) +
+    geom_histogram(aes(y=..density..),      # Histogram with density instead of count on y-axis
+                   binwidth=.5,
+                   colour="black", fill="white") +
+    geom_density(alpha=.2, fill="#FF6666")  # Overlay with transparent density plot
+```
+Note the distrubution of term counts per school. Majority of scholls have 2 - 4 terms tracked but some schoolls have a high number of terms. 
+
+Level of detail (L.O.D) needed to be standardized for this data set as different schools have a different number of keyes, there for more observations and more variation depeding on the keys used and the number of keys collecte3d for a school. 
+We know that we cant compare indexes dirrectly to eachother as there are not comparable, however we already attempted to normalized this result a bit. 
+
+To simplify the level of detail and accout for the multipe keys choices im going to take the median of the keys per school per week. 
+
+#### _Aggregate the trends data_
+
+```{r}
+google_trends_agg <- google_trends_master %>% 
+  select(-c("index", "mean_index", "std_index", "idx_minus_mean")) %>% 
+  group_by(unitid, opeid, schname, start_of_week, after_score_card) %>%
+  summarise(md_wk_std_idx = median(standard_idx)) %>%
+  arrange(., schname ,start_of_week )
+```
+now that we have a more standarized level of detail across schools and time lets look at the distrobiition again. 
+
+## Describe School Data
+why?
+#### Percentage of missing data
+
+```{r}
+x <- sapply(school_master, function(x) sum(is.na(x)))
+head(x)
+```
+
+#### Vars of intrest
+
+#### Describe
+
+
+
+
+## Identify "high-earning" and "low-earning" Earning Schools
+Our research questions states “high-earning” vs “low-earning” colleges earning, so how can we define “high” vs “low”?
+Earning Variables of interest:
+
+- mn_earn_wne_p10
+- md_earn_wne_p10-REPORTED-EARNINGS (One that was called to attention for the project)
+- pct10_earn_wne_p10
+- pct25_earn_wne_p10
+- pct75_earn_wne_p10
+- pct90_earn_wne_p10
+- sd_earn_wne_p10
+- count_wne_inc1_p10
+- count_wne_inc2_p10
+- count_wne_inc3_p10
+
+#### _Distributions on earnings among colleges_
+```{r}
+# Histogram overlaid with kernel density curve
+ggplot(school_master, aes(x=md_reported_ern_10yr)) +
+    geom_histogram(aes(y=..density..),      # Histogram with density instead of count on y-axis
+                   binwidth=100,
+                   colour="black", fill="white") +
+    geom_density(alpha=.2, fill="#FF6666", stat="count")  # Overlay with transparent density plot
+```
+
+This graph represents the density of "median earnings of graduates ten years after graduation for each college".
+Density in this case is the count of colleges that fall in that earning spectrum.
+
+This plot has a lot of noise in it though so lets smooth it out. 
+```{r}
+ggplot(school_master, aes(x= as.numeric(md_reported_ern_10yr))) + geom_density()
+
+```
+
+Now that the data is smoothed we get a better perspective of the distribution of earnings. 
+We can see tho that this data is skewed to the right, indicating that while most schools median earning 10 years after graduation tends to fall right around 40,000 we have select schools who report very high earnings above 150,000. 
+
+to adjust for the skew and normalizes the data a bit we'll take the log of earnings
+```{r}
+ggplot(school_master, aes(x= log(as.numeric(md_reported_ern_10yr)))) + geom_density()
+```
+Now we can see that the data more closely represents a normalized curve when represented as a log().
+This indicate that if we are to use the earnings in this analysis (Which we are) we should probaly explore its representation inits log() form. 
+
+Storing the log value as a column. 
+```{r,  message=FALSE, warning=FALSE}
+school_master <- school_master %>%
+  mutate(log_mean_10_yr_earnings = log(md_reported_ern_10yr))
+```
+
+This also tells us that when setting the "High" vs "Low" Earning schools we will not want to accept the mean as a splitting point as very high or very low earning schools have the ability to skew the mean value
+
+The first way i would attempt to set the "High" Vs "Low" cut off point is by looking at the data dictionary. 
+Looking at the data dictionary income/ earning levels are consistently categorized as the following:
+
+- low-income (less than $30,000)
+- middle-income (between $30,000 and $75,000)
+- high-income (above $75,000)
+
+Since this is the standard according to the data dictionary i dont think it would be wrong to follow suit in our classification.
+SO we'll add this classification as a feature for later use.
+
+```{r, message=FALSE, warning=FALSE}
+school_master <- school_master %>%
+  mutate(Income_level_standard = case_when(as.numeric(md_reported_ern_10yr) < 30000 ~ 'Low',
+                             as.numeric(md_reported_ern_10yr) > 75000 ~ 'High',
+                             TRUE ~ 'Med'))
+```
+
+Using this classification of high vs low however cuts out the mean of my sample population though and a majority of my observations so ill want to address this differently.  
+
+#### _median_
+For this ill be splitting it on the median for the entire sample. Selecting not to use mean here as earnings as we saw graphically (above) are highly skewed, median however will help us get a less skewed center. 
+
+```{r}
+# median earnings
+median_val = median(school_master$md_reported_ern_10yr)
+school_master <- school_master %>%
+  mutate(Inc_High_Low = case_when(md_reported_ern_10yr <= median_val ~ 'Low',
+                             TRUE ~ 'High'))
+
+```
+
+
+
+
+
+
+### index over time
 
 ```{r}
 # explore/ descried google data more and chose level of detail 
@@ -130,89 +266,7 @@ No major change in distributions of indexing before vs after score card release
 # This section we'll identify high earning school/ how and why, etc.  
 ```
 
-## Identify "high-earning" and "low-earning" Earning Schools
-Our research questions states “high-earning” vs “low-earning” colleges earning, so how can we define “high” vs “low”?
-Earning Variables of interest:
 
-- mn_earn_wne_p10
-- md_earn_wne_p10-REPORTED-EARNINGS (One that was called to attention for the project)
-- pct10_earn_wne_p10
-- pct25_earn_wne_p10
-- pct75_earn_wne_p10
-- pct90_earn_wne_p10
-- sd_earn_wne_p10
-- count_wne_inc1_p10
-- count_wne_inc2_p10
-- count_wne_inc3_p10
-
-#### _Distributions on earnings among colleges_
-```{r}
-# Histogram overlaid with kernel density curve
-ggplot(shool_master, aes(x=md_reported_ern_10yr)) +
-    geom_histogram(aes(y=..density..),      # Histogram with density instead of count on y-axis
-                   binwidth=100,
-                   colour="black", fill="white") +
-    geom_density(alpha=.2, fill="#FF6666", stat="count")  # Overlay with transparent density plot
-```
-
-This graph represents the density of "median earnings of graduates ten years after graduation for each college".
-Density in this case is the count of colleges that fall in that earning spectrum.
-
-This plot has a lot of noise in it though so lets smooth it out. 
-```{r}
-ggplot(shool_master, aes(x= as.numeric(md_reported_ern_10yr))) + geom_density()
-
-```
-
-Now that the data is smoothed we get a better perspective of the distribution of earnings. 
-We can see tho that this data is skewed to the right, indicating that while most schools median earning 10 years after graduation tends to fall right around 40,000 we have select schools who report very high earnings above 150,000. 
-
-to adjust for the skew and normalizes the data a bit we'll take the log of earnings
-```{r}
-ggplot(shool_master, aes(x= log(as.numeric(md_reported_ern_10yr)))) + geom_density()
-```
-Now we can see that the data more closely represents a normalized curve when represented as a log().
-This indicate that if we are to use the earnings in this analysis (Which we are) we should probaly explore its representation inits log() form. 
-
-Storing the log value as a column. 
-```{r,  message=FALSE, warning=FALSE}
-shool_master <- shool_master %>%
-  mutate(log_mean_10_yr_earnings = log(md_reported_ern_10yr))
-```
-
-This also tells us that when setting the "High" vs "Low" Earning schools we will not want to accept the mean as a splitting point as very high or very low earning shools have the ability to skew the mean value
-
-The first way i would attempt to set the "High" Vs "Low" cut off point is by looking at the data dictionary. 
-Looking at the data dictionary income/ earning levels are consistently categorized as the following:
-
-- low-income (less than $30,000)
-- middle-income (between $30,000 and $75,000)
-- high-income (above $75,000)
-
-Since this is the standard according to the data dictionary i dont think it would be wrong to follow suit in our classification.
-SO we'll add this classification as a feature for later use.
-
-```{r, message=FALSE, warning=FALSE}
-shool_master <- shool_master %>%
-  mutate(Income_level_standard = case_when(as.numeric(md_reported_ern_10yr) < 30000 ~ 'Low',
-                             as.numeric(md_reported_ern_10yr) > 75000 ~ 'High',
-                             TRUE ~ 'Med'))
-```
-
-Using this classification of high vs low however cuts out the mean of my sample population though and a majority of my observations so ill want to address this differently.  
-
-#### _median_
-For this ill be splitting it on the median for the entire sample. Selecting not to use mean here as earnings as we saw graphically (above) are highly skewed, median however will help us get a less skewed center. 
-
-```{r}
-# median earnings
-median_val = median(shool_master$md_reported_ern_10yr)
-print(paste("median value is", median_val))
-shool_master <- shool_master %>%
-  mutate(Inc_High_Low = case_when(md_reported_ern_10yr <= median_val ~ 'Low',
-                             TRUE ~ 'High'))
-
-```
 
 #### _modeling_
 ```{r}
@@ -235,20 +289,3 @@ Some of these these should likely be eliminated from the study unless we have a 
 
 No particularly high missing data in Trends.
 
-```{r}
-# unique_keyword_count <- TrendsAppendedDf %>% 
-#   group_by(schname) %>%
-#   summarise(count_unique = n_distinct(keyword)) %>% 
-#   arrange(., desc(count_unique))
-```
-
-
-Number of unique words beeing tracker per school. Some schools have more words tracked for them than others. 
-```{r, echo = TRUE}
-# Histogram overlaid with kernel density curve
-# ggplot(unique_keyword_count, aes(x=count_unique)) + 
-#     geom_histogram(aes(y=..density..),      # Histogram with density instead of count on y-axis
-#                    binwidth=.5,
-#                    colour="black", fill="white") +
-#     geom_density(alpha=.2, fill="#FF6666")  # Overlay with transparent density plot
-```

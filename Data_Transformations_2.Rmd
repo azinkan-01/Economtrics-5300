@@ -129,7 +129,7 @@ Identify opeid's with more than one unique school name
 many to 1 relationship with opeid (want to cut that out)
 
 ```{r}
-Unique_Shools <- IDNameLinkRaw %>% 
+Unique_schools <- IDNameLinkRaw %>% 
   select(opeid, schname) %>% 
   group_by(opeid) %>% 
   summarise(count_unique = n_distinct(schname))%>% 
@@ -137,10 +137,10 @@ Unique_Shools <- IDNameLinkRaw %>%
   filter(count_unique == 1)
 
 # create filter for unique ids
-shool_filter <- Unique_Shools$opeid
+school_filter <- Unique_schools$opeid
 
 # filter raw set by the opeids that have unique names
-IDNameLinkStage <- filter(IDNameLinkRaw, opeid %in% shool_filter)
+IDNameLinkStage <- filter(IDNameLinkRaw, opeid %in% school_filter)
 ```
 Starting with 3595 Schools
 Our first filter results in 3557 remaining schools
@@ -157,10 +157,10 @@ unique_ids <- IDNameLinkRaw %>%
   filter(count_unique < 2)
 
 # create filter for unique ids
-shool_filter <- unique_ids$schname
+school_filter <- unique_ids$schname
 
 # apply another filter to staged set by filtering the opeids that have unique names
-IDNameLinkStage <- filter(IDNameLinkStage, schname %in% shool_filter)
+IDNameLinkStage <- filter(IDNameLinkStage, schname %in% school_filter)
 ```
 This filter results in 3486 records, removing an additional 71 universities. 
 
@@ -285,13 +285,13 @@ Trends <- Trends %>%
 #### _School ID & Metrics_
 Using inner join to ensure that we have a complete data set in terms of unitid and opeid that match across or school key and our school data points.
 ```{r}
-shool_master <- IDNameLinkStage %>% 
+school_master <- IDNameLinkStage %>% 
   inner_join(ScoreCardDataStage, by = c("opeid", "unitid"))
 ```
 
 our final data set for analysis is now comprised of a total of 1798 records by 123 variables. 
 ```{r}
-dim(shool_master)
+dim(school_master)
 ```
 
 #### _Google Trends & School ID_
@@ -306,7 +306,7 @@ google_trends_master <- IDNameLinkStage %>%
 ## CSV Out Put
 Holding out our mutation steps in this code and producing one school data frame and one goolg etrends data set allows for faster and cleaner downstream modeling. 
 ```{r}
-write.csv(shool_master, "C:\\Users\\andre\\OneDrive\\R_Projects\\Economtrics-5300\\Generated_data\\shool_master.csv", row.names=FALSE)
+write.csv(school_master, "C:\\Users\\andre\\OneDrive\\R_Projects\\Economtrics-5300\\Generated_data\\school_master.csv", row.names=FALSE)
 ```
 
 ```{r}
