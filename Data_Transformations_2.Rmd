@@ -237,22 +237,6 @@ Trends <- Trends %>%
 ```
 This does in fact remove many duplicate records (30894)
 
-
-```{r, message=FALSE, warning=FALSE}
-# Key Level Mean
-key_level_idx <- Trends %>% 
-  select(schname,keyword,index, ) %>% 
-  group_by(schname,keyword) %>% 
-  summarise(mean_index = mean(index), 
-            std_index = sd(index))
-
-# Join raw and idk level
-Trends <- Trends %>% 
-  inner_join(key_level_idx, by = c("schname", "keyword")) %>% 
-  select(schname, keyword, monthorweek, index, mean_index, std_index) %>%
-  mutate(idx_minus_mean = index-mean_index, standard_idx = idx_minus_mean/std_index)
-
-```
 #### _Fix Dates_
 Score card was added beginning of sept 2015
 ```{r, message=FALSE, warning=FALSE}
@@ -268,6 +252,30 @@ Trends <- Trends %>%
 # Before and after scorecard indicator
 Trends <- Trends %>% 
   mutate(after_score_card = if_else(start_of_week >= as.Date("2015-09-01", format="%Y-%m-%d"), TRUE, FALSE))
+
+```
+
+#### _ No Null Dates_
+As this question is related to the function of time we need to deal with the records that are not associated witha time frame.
+It should be noted that these records also lack any index information. Likely was complied from source incorrectly or reflects API querries where data was not available at that time.  
+```{r}
+Trends <- Trends %>% 
+  filter(!is.na(start_of_week))
+```
+
+```{r, message=FALSE, warning=FALSE}
+# Key Level Mean
+key_level_idx <- Trends %>% 
+  select(schname,keyword,index, ) %>% 
+  group_by(schname,keyword) %>% 
+  summarise(mean_index = mean(index), 
+            std_index = sd(index))
+
+# Join raw and idk level
+Trends <- Trends %>% 
+  inner_join(key_level_idx, by = c("schname", "keyword")) %>% 
+  select(schname, keyword, start_of_week, index, mean_index, std_index, after_score_card) %>%
+  mutate(idx_minus_mean = index-mean_index, standard_idx = idx_minus_mean/std_index)
 
 ```
 

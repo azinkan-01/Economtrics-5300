@@ -11,7 +11,7 @@ knitr::opts_chunk$set(echo = TRUE)
 
 ```{r, ech0 = FALSE, results= "hide", message=FALSE, warning=FALSE}
 # Load initial packages
-# install.packages('timetk')
+install.packages("DMwR")
 library(tidyverse)
 library(ggplot2)
 library(dplyr)
@@ -19,6 +19,7 @@ library(vtable)
 library(fixest)
 library(Hmisc)
 # library(timetk)
+library(DMwR)
 library(tidyr)
 ```
 
@@ -45,20 +46,40 @@ google_trends_master <- google_trends_master %>%
 di <- describe(google_trends_master)
 print(di[3])
 ```
+Note that we have 1386 unique university observations accountitng for a total of 733823 records. 
+No Null values
 ```{r}
 # time frame data
-di <- describe(google_trends_master)
-print(di[5:6])
+print(di[5])
 ```
+
 ```{r}
 # index info
-di <- describe(google_trends_master)
-print(di[7:9])
+print(di[6:8])
+```
+
+```{r}
+# normalized index info
+print(di[10:11])
 ```
 ```{r}
 # normalized index info
-di <- describe(google_trends_master)
-print(di[11])
+print(di[9])
+```
+Note that we have lopsided data (only 19% of our records are taken after the score card came out)
+we'll want to adjust our sample to be random and more even distribution of true and false records. 
+
+
+#### _selecting random sample_
+
+```{r}
+# Before
+table(google_trends_master$after_score_card)
+
+under_sample <- SMOTE(after_score_card ~ ., google_trends_master, perc.over = 600,perc.under=100)
+
+table(under_sample$after_score_card)
+
 ```
 
 ```{r, echo=FALSE, results= "hide", warning = FALSE}
@@ -80,12 +101,10 @@ ggplot(google_trends_master, aes(x= as.numeric(standard_idx), fill=after_score_c
 No major change in distributions of indexing before vs after score card release
 
 
-
-
 ## index over time
 
 ```{r}
-# explore/ descried good data more and chose level of detail 
+# explore/ descried google data more and chose level of detail 
 ```
 
 #### _ school master data_
