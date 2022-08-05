@@ -218,7 +218,13 @@ This filter results in 1804 records, removing an additional 0 universities.
 
 ## Data Transformation Trend data
 
-#### _Make Indices reasonably comparable_
+# TODO: 
+
+- Double check the index changes
+- use month() from lubridate to pull the month out of your date variable
+- chose aggregation fo trend data
+
+#### _Union All Trend Data_
 union all the Trends Data as one dataframe
 ```{r, results= "hide", message=FALSE, warning=FALSE}
 # Union the Trends Data
@@ -255,14 +261,15 @@ Trends <- Trends %>%
 
 ```
 
-#### _ No Null Dates_
-As this question is related to the function of time we need to deal with the records that are not associated witha time frame.
+#### _No Null Dates_
+As this question is related to the function of time we need to deal with the records that are not associated with a time frame.
 It should be noted that these records also lack any index information. Likely was complied from source incorrectly or reflects API querries where data was not available at that time.  
 ```{r}
 Trends <- Trends %>% 
   filter(!is.na(start_of_week))
 ```
 
+#### _Make Indices reasonably comparable_
 ```{r, message=FALSE, warning=FALSE}
 # Key Level Mean
 key_level_idx <- Trends %>% 
@@ -279,6 +286,14 @@ Trends <- Trends %>%
 
 ```
 
+#### _Aggregate the Trends Data_
+```{r}
+Trends <- Trends %>% 
+  select(-c("index", "mean_index", "std_index", "idx_minus_mean")) %>% 
+  group_by(schname, start_of_week, after_score_card) %>%
+  summarise(md_wk_std_idx = median(standard_idx)) %>%
+  arrange(., start_of_week )
+```
 ## Master Data
 
 

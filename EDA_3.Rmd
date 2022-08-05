@@ -5,13 +5,19 @@ date: "8/3/2022"
 output: html_document
 ---
 
+# TODO:
+Read the instructions again!!!!!!!
+open up variables on the df and do backward feature emilination to select. 
+double check the index standardizetion. need to group by first. 
+Strip prep file maybe like the order of operations from cleaning
+
 ```{r setup, include=FALSE}
 knitr::opts_chunk$set(echo = TRUE)
 ```
 
 ```{r, ech0 = FALSE, results= "hide", message=FALSE, warning=FALSE}
 # Load initial packages
-# install.packages("DMwR")
+# install.packages("rlist")
 library(tidyverse)
 library(ggplot2)
 library(dplyr)
@@ -21,6 +27,7 @@ library(Hmisc)
 # library(timetk)
 # library(DMwR)
 library(tidyr)
+library(rlist)
 ```
 
 #### _Load Data Transfromation Files_
@@ -36,35 +43,58 @@ google_trends_master <- google_trends_master %>%
   
 ```
 
-## Describe Google Trends Data
-why?
+# Describe Google Trends Data
+Lets start by looking at some basic statistics for each data source. 
 ```{r}
-# schname
 di <- describe(google_trends_master)
-print(di[3])
 ```
-Note that we have 1386 unique university observations accountitng for a total of 733823 records. 
-No Null values
+Observations:
+1386 unique university observations
+Total of 733823 records (We have many entried per induvidual) -> Pannel Data
+No N/A values
 ```{r}
 # time frame data
 print(di[5])
 ```
+Observations:
+No N/A Data
+157 Unique Weeks accounted for in the data set
+ranging from 2013-03-31 -> 2016-03-27
+  
 
 ```{r}
 # index info
 print(di[6:8])
 ```
+Observations:
+No N/A Data
+Mean raw index rating = 48.11
+Index ranging from 1 -> 100
+
+**I'll call out a few additional observations of interest here but i wont be goign as in depth in later annotations. 
+
+Gini's mean difference (Gmd) is a measure of Variability fairly low as there is a set range of indexing.
+Can also tell from the Continuose dendist functions (CDF) numbers that the data is pretty normaly distributed and that 50% of its observations are under the value of 48 (which makes perfect sense as the mean is also 48)
+
+
 
 ```{r}
 # normalized index info
-print(di[10:11])
+print(di[11])
 ```
-
+Observations:
+No N/A Data
+Mean standardized rating from ~ -5 -> ~13. 
+This is a normalized index rating, has not direct interpretation. 
 ```{r}
 # normalized index info
 print(di[9])
 ```
-Note that we have lopsided data (only 19% of our records are taken after the score card came out)
+Observations:
+No N/A Data
+Mean raw index rating = 48.11
+
+**Note that we have lopsided data (only 19% of our records are taken after the score card came out)
 we'll want to adjust our sample to be random and more even distribution of true and false records. 
 
 
@@ -85,7 +115,9 @@ ggplot(google_trends_master, aes(x= as.numeric(index), fill=after_score_card, al
   geom_density()
 
 ```
-No major change in distributions of indexing before vs after score card release
+Observations:
+Normal Distribution
+No sizable differnece in distobution before vs after score card release
 
 ```{r, echo=FALSE, results= "hide", warning = FALSE}
 # plot density for the index rankings
@@ -93,21 +125,21 @@ ggplot(google_trends_master, aes(x= as.numeric(standard_idx), fill=after_score_c
   geom_density()
 
 ```
-No major change in distributions of indexing before vs after score card release
+Observations:
+Looking at the standardized index we see even more similarity among distributions. 
+`distribution` of rating do not appear to be changing before vs after score care release. 
 
-#### _Select L.O.D for Trends Data
+#### _Select L.O.D for Trends Data_
+This data does however have some thing we need to adjust for. Some Schools have more key words tracked than others, this means that certain school have more data available than others and cast a wider net for terms.
 
+This is the distribution of unique terms among schools:
 
 ```{r}
 unique_keyword_count <- google_trends_master %>% 
   group_by(schname) %>%
   summarise(count_unique = n_distinct(keyword)) %>%
   arrange(., desc(count_unique))
-```
 
-
-Number of unique words beeing tracker per school. Some schools have more words tracked for them than others. 
-```{r, echo = TRUE}
 # Histogram overlaid with kernel density curve
 ggplot(unique_keyword_count, aes(x=count_unique)) +
     geom_histogram(aes(y=..density..),      # Histogram with density instead of count on y-axis
@@ -115,12 +147,12 @@ ggplot(unique_keyword_count, aes(x=count_unique)) +
                    colour="black", fill="white") +
     geom_density(alpha=.2, fill="#FF6666")  # Overlay with transparent density plot
 ```
-Note the distrubution of term counts per school. Majority of scholls have 2 - 4 terms tracked but some schoolls have a high number of terms. 
+Note the distribution is count of unique terms tracker per school. 
+Majority of scholls have 2 - 4 terms tracked, but some schools have a higher number of terms. 
 
-Level of detail (L.O.D) needed to be standardized for this data set as different schools have a different number of keyes, there for more observations and more variation depeding on the keys used and the number of keys collecte3d for a school. 
-We know that we cant compare indexes dirrectly to eachother as there are not comparable, however we already attempted to normalized this result a bit. 
+Because there are a varying number of keye terms tracked i want to aggregat this data to by school, week, and cumilitive index for all terms tracked for them. 
 
-To simplify the level of detail and accout for the multipe keys choices im going to take the median of the keys per school per week. 
+to account for this issue ive selected to  take the median of standardized indexes per week per school.  
 
 #### _Aggregate the trends data_
 
@@ -129,45 +161,133 @@ google_trends_agg <- google_trends_master %>%
   select(-c("index", "mean_index", "std_index", "idx_minus_mean")) %>% 
   group_by(unitid, opeid, schname, start_of_week, after_score_card) %>%
   summarise(md_wk_std_idx = median(standard_idx)) %>%
-  arrange(., schname ,start_of_week )
-```
-now that we have a more standarized level of detail across schools and time lets look at the distrobiition again. 
+  arrange(., start_of_week )
 
-## Describe School Data
-why?
-#### Percentage of missing data
-
-```{r}
-x <- sapply(school_master, function(x) sum(is.na(x)))
-head(x)
+head(google_trends_agg)
 ```
 
-#### Vars of intrest
+This gives us 1 index measurement per school per week -> `md_wk_std_idx`
 
-#### Describe
+# Describe School Data
+Now lets look at our school data.
+**this data is much larger (126 different variables), so I wont depict it graphically in this report.
+
+#### _Percentage of missing data_
+because there are a lot of variables in this file im going to reduce our viable column list quickly by eliminating measures with a lot of Null entries.
+
+This is rather arbitrary, however im selecting cut off of 25% null values and rejecting anything higher for the time being. Meaning that for consideration im only allowing up to 25% of the records for column to be null. 
+
+If over 25% of the records are null for a column im discarding them for now. 
+
+Using this code chunk to create my column list, Which i will then hide from the school data set. 
+```{}
+x <- map(school_master, ~mean(is.na(.))) 
+y <- data.frame(t(sapply(x,c)))
+ty <- t(y)
+mylist <- list()
+
+for(i in 1:123)
+ {
+  if (ty[i] >.25) {
+  mylist <- append(mylist, row.names(ty)[i])
+  }
+  else {
+  }
+}
+y <- data.frame(t(sapply(mylist,c)))
+ty <- t(y)
+# paste(ty, collapse = '\n') %>% cat()
+
+```
+
+```{r, echo = FALSE}
+#removing variables with alot of na to cut down analysis
+school_trim <- school_master %>% 
+  select(-c("RELAFFIL",
+            "SATVR25",
+            "SATVR75",
+            "SATMT25",
+            "SATMT75",
+            "SATWR25",
+            "SATWR75",
+            "SATVRMID",
+            "SATMTMID",
+            "SATWRMID",
+            "ACTCM25",
+            "ACTCM75",
+            "ACTEN25",
+            "ACTEN75",
+            "ACTMT25",
+            "ACTMT75",
+            "ACTWR25",
+            "ACTWR75",
+            "ACTCMMID",
+            "ACTENMID",
+            "ACTMTMID",
+            "ACTWRMID",
+            "SAT_AVG",
+            "SAT_AVG_ALL",
+            "NPT4_PUB.AVERAGE.ANNUAL.COST",
+            "NPT4_PRIV",
+            "NPT41_PUB",
+            "NPT42_PUB",
+            "NPT43_PUB",
+            "NPT44_PUB",
+            "NPT45_PUB",
+            "NPT41_PRIV",
+            "NPT42_PRIV",
+            "NPT43_PRIV",
+            "NPT44_PRIV",
+            "NPT45_PRIV",
+            "RET_FTL4",
+            "RET_PT4",
+            "RET_PTL4",
+            "C200_L4_POOLED_SUPP")) 
+
+```
+
+#### _Variables of interest_
+Now that i have narrowed down the variables im going to select variables of interest that apply to our research question. 
+
+Variables of interest:
+
+|Definition|Variable|Type|
+|:----|:----|:----|
+|City|CITY|Location|
+|State postcode|STABBR|Location|
+|ZIP code|ZIP|Location|
+|FIPS code for state|st_fips|Location|
+|Locale of institution|LOCALE|Location|
+|Admission rate|ADM_RATE|Admissions|
+|Admission rate for all campuses rolled up to the 6-digit OPE ID|ADM_RATE_ALL|Admissions|
+|Enrollment of undergraduate degree-seeking students|UGDS|Enrollment|
+|Total share of enrollment of undergraduate degree-seeking students who are white|UGDS_WHITE|Enrolment-Race|
+|Total share of enrollment of undergraduate degree-seeking students who are black|UGDS_BLACK|Enrolment-Race|
+|Total share of enrollment of undergraduate degree-seeking students who are Hispanic|UGDS_HISP|Enrolment-Race|
+|Total share of enrollment of undergraduate degree-seeking students who are Asian|UGDS_ASIAN|Enrolment-Race|
+| |mn_earn_wne_p10|Earniing|
+| |md_reported_ern_10yr|Earniing|
+| |pct10_earn_wne_p10|Earniing|
+| |pct25_earn_wne_p10|Earniing|
+| |pct75_earn_wne_p10|Earniing|
+| |pct90_earn_wne_p10|Earniing|
+| |sd_earn_wne_p10|Earniing|
+| |count_wne_inc1_p10|income|
+| |count_wne_inc2_p10|income|
+| |count_wne_inc3_p10|income|
 
 
 
+#### Describe Variables
 
-## Identify "high-earning" and "low-earning" Earning Schools
-Our research questions states “high-earning” vs “low-earning” colleges earning, so how can we define “high” vs “low”?
-Earning Variables of interest:
+more variables to look at here!!!
 
-- mn_earn_wne_p10
-- md_earn_wne_p10-REPORTED-EARNINGS (One that was called to attention for the project)
-- pct10_earn_wne_p10
-- pct25_earn_wne_p10
-- pct75_earn_wne_p10
-- pct90_earn_wne_p10
-- sd_earn_wne_p10
-- count_wne_inc1_p10
-- count_wne_inc2_p10
-- count_wne_inc3_p10
 
-#### _Distributions on earnings among colleges_
+#### _Identify "high-earning" and "low-earning" Earning Schools_
+Our research questions states “high-earning” vs “low-earning” colleges earning, so how can we define “high” vs “low”? Lets first look at the distribution of earnings among colleges.
 ```{r}
 # Histogram overlaid with kernel density curve
-ggplot(school_master, aes(x=md_reported_ern_10yr)) +
+ggplot(school_trim, aes(x=md_reported_ern_10yr)) +
     geom_histogram(aes(y=..density..),      # Histogram with density instead of count on y-axis
                    binwidth=100,
                    colour="black", fill="white") +
@@ -175,11 +295,11 @@ ggplot(school_master, aes(x=md_reported_ern_10yr)) +
 ```
 
 This graph represents the density of "median earnings of graduates ten years after graduation for each college".
-Density in this case is the count of colleges that fall in that earning spectrum.
+Density in this case is the `count` of colleges that fall in that earning spectrum.
 
-This plot has a lot of noise in it though so lets smooth it out. 
+This plot has a lot of noise in it though so lets smooth it out and look at densisty. 
 ```{r}
-ggplot(school_master, aes(x= as.numeric(md_reported_ern_10yr))) + geom_density()
+ggplot(school_trim, aes(x= as.numeric(md_reported_ern_10yr))) + geom_density()
 
 ```
 
@@ -188,14 +308,14 @@ We can see tho that this data is skewed to the right, indicating that while most
 
 to adjust for the skew and normalizes the data a bit we'll take the log of earnings
 ```{r}
-ggplot(school_master, aes(x= log(as.numeric(md_reported_ern_10yr)))) + geom_density()
+ggplot(school_trim, aes(x= log(as.numeric(md_reported_ern_10yr)))) + geom_density()
 ```
-Now we can see that the data more closely represents a normalized curve when represented as a log().
-This indicate that if we are to use the earnings in this analysis (Which we are) we should probaly explore its representation inits log() form. 
+Now we can see that we account for the long tails and tthat the data more closely represents a normal curve when represented as a log().
+This indicate that if we are to use the earnings in this analysis (Which we are) we should probably explore its representation inits log() form. 
 
 Storing the log value as a column. 
 ```{r,  message=FALSE, warning=FALSE}
-school_master <- school_master %>%
+school_trim <- school_trim %>%
   mutate(log_mean_10_yr_earnings = log(md_reported_ern_10yr))
 ```
 
@@ -212,7 +332,7 @@ Since this is the standard according to the data dictionary i dont think it woul
 SO we'll add this classification as a feature for later use.
 
 ```{r, message=FALSE, warning=FALSE}
-school_master <- school_master %>%
+school_trim <- school_trim %>%
   mutate(Income_level_standard = case_when(as.numeric(md_reported_ern_10yr) < 30000 ~ 'Low',
                              as.numeric(md_reported_ern_10yr) > 75000 ~ 'High',
                              TRUE ~ 'Med'))
@@ -220,43 +340,79 @@ school_master <- school_master %>%
 
 Using this classification of high vs low however cuts out the mean of my sample population though and a majority of my observations so ill want to address this differently.  
 
-#### _median_
-For this ill be splitting it on the median for the entire sample. Selecting not to use mean here as earnings as we saw graphically (above) are highly skewed, median however will help us get a less skewed center. 
+For this ill be splitting it on the `median` for the entire sample. Selecting not to use mean here as earnings as we saw graphically (above) are highly skewed, median however will help us get a less skewed center. 
 
 ```{r}
 # median earnings
-median_val = median(school_master$md_reported_ern_10yr)
-school_master <- school_master %>%
+median_val = median(school_trim$md_reported_ern_10yr)
+school_trim <- school_trim %>%
   mutate(Inc_High_Low = case_when(md_reported_ern_10yr <= median_val ~ 'Low',
                              TRUE ~ 'High'))
 
 ```
 
-
-
-
-
-
-### index over time
-
+#### _Join the final data for analysis_
 ```{r}
-# explore/ descried google data more and chose level of detail 
+# Make the final data set and provide reasoning
+df <- google_trends_agg %>% 
+  inner_join(school_trim, by = c("opeid", "unitid"))
+
 ```
 
-#### _ school master data_
+# EDA
+
+#### _add features_ 
 
 ```{r}
-# what ever i do for google do for schools  
+# then add features, interactions, strip month, look for difference or change in metrics each week 
+# This section we'll identify high earning school/ how and why, etc.  
+# TODO: use ymd() on date. see https://nickch-k.github.io/EconometricsSlides/Week_06/Week_06_Bonus_Project_Data_Cleaning.html#6
+```
+ 
+
+### _Search Levels Over Time_
+
+```{r, warning =FALSE}
+agg <-  df %>% 
+  group_by(Inc_High_Low, start_of_week) %>% 
+  summarise(md_wk_std_idx=mean(md_wk_std_idx)) %>% 
+  arrange(., start_of_week)
+
+ggplot(data = agg, mapping = aes(x=start_of_week, y=md_wk_std_idx, color= Inc_High_Low, group=Inc_High_Low))+
+  geom_path()+
+  geom_point()+
+  scale_y_continuous(limits = c(0,1), breaks = seq(0,1,5), expand = c(0,0))+
+  scale_x_date(date_breaks = '6 month', date_labels = '%b %d %Y')+
+  labs(x = NULL, y = 'Avg Normalized Index By Week', color = 'Hi or Low Earning')+
+  theme_bw()
+```
+When looking at the search index ratings schools look to be highly correlated.
+Note we do not have continuous data there are gaps in time not accounted for. (WOuld idealy like to inerpolate the values) 
+
+```{r}
+agg <-  df %>% 
+  group_by(schname.x, after_score_card, Inc_High_Low) %>% 
+  summarise(md_wk_std_idx=mean(md_wk_std_idx), 
+            log_mean_10_yr_earnings = mean(log_mean_10_yr_earnings),
+            PCIP04 = mean(PCIP04))
+
+ggplot(data=agg, aes(y = md_wk_std_idx, x = log_mean_10_yr_earnings))+
+  geom_point(aes(color = factor(after_score_card)))+
+  labs(y = 'Index', x = 'Median 10 Yr Earnings', color = 'after_score_card')
+
 ```
 
-#### _Vars of interest
 ```{r}
-# find all variables of interest (do missing null % here)
-```
+agg <-  df %>% 
+  group_by(schname.x, after_score_card, Inc_High_Low) %>% 
+  summarise(md_wk_std_idx=mean(md_wk_std_idx), 
+            log_mean_10_yr_earnings = mean(log_mean_10_yr_earnings),
+            PCIP04 = mean(PCIP04))
 
-#### Join the final df at whatever level of detail is needed for mastereed set
-```{r}
-# Make the final data set and provide reasoning  
+ggplot(data=agg, aes(y = md_wk_std_idx, x = log_mean_10_yr_earnings))+
+  geom_point(aes(color = factor(Inc_High_Low)))+
+  labs(y = 'Index', x = 'Median 10 Yr Earnings', color = 'Inc_High_Low')
+
 ```
 
 #### _add features_ 
@@ -274,18 +430,57 @@ school_master <- school_master %>%
 # plots and scatter plots
 ```
 
-### Missing Data This should go up as part of  variable selection
 ```{r}
-# Finding % of nulls
-# MostRecentNA <- map(MostRecentRaw, ~mean(is.na(.)))
-# MostRecentNA
+library(corrplot)
+
+write.csv(df, "C:\\Users\\andre\\OneDrive\\R_Projects\\Economtrics-5300\\Generated_data\\master_df.csv", row.names=FALSE)
+
+
+df_trim <- df %>% 
+  select(md_wk_std_idx, log_mean_10_yr_earnings,md_reported_ern_10yr, LOCALE, MENONLY,WOMENONLY,UGDS, Income_level_standard, Inc_High_Low )
+
+# Backward feature elimination
+fitall <- lm( md_wk_std_idx ~ .-opeid-unitid, data = df_trim)
+summary(fitall)
+# Pick the main variables
+acme_var = df_trim %>% select(profit_acre, region, Unique_eqt_cnt, area,
+                                crop_acre, Education_Attainment,
+                                b_Health_conditions_in_last_two_weeks, nh_num_people)
+summary(acme_var)
 
 ```
 
-We have quite a few columns that have a high proportion of Null values. 
-Some of these these should likely be eliminated from the study unless we have a good reason not to. 
 
 
+<!-- library(corrplot) -->
 
-No particularly high missing data in Trends.
+<!-- # Backward feature elimination -->
+<!-- fitall <- lm(profit_acre ~ .-clust-nh, data = master_df) -->
+<!-- summary(fitall) -->
+<!-- # Pick the main variables -->
+<!-- acme_var = master_df %>% select(profit_acre, region, Unique_eqt_cnt, area, -->
+<!--                                 crop_acre, Education_Attainment, -->
+<!--                                 b_Health_conditions_in_last_two_weeks, nh_num_people) -->
+<!-- summary(acme_var) -->
+<!-- # Get correlations -->
+<!-- c <- cor(acme_var %>% select(!c("profit_acre"))) -->
+<!-- corrplot(c, method="circle") -->
+<!-- # Regress profit by acre on the main acme set -->
+<!-- main <- lm(profit_acre ~ region + Unique_eqt_cnt + area + crop_acre +  -->
+<!--              Education_Attainment + b_Health_conditions_in_last_two_weeks +  -->
+<!--              nh_num_people, data=acme_var) -->
+<!-- summary(main) -->
+<!-- # Plot model diagnostics starting with the standardized residuals. -->
+<!-- hist(rstandard(main), xlab="Standardized Residuals") -->
+<!-- # Now plot the residuals vs fitted. -->
+<!-- plot(fitted(main), resid(main), xlab="Fitted", ylab="Residuals") -->
 
+
+<!-- # Regress profit by acre on all with factor(region) and education^2 -->
+<!-- edu <- lm(profit_acre ~ factor(region) + Unique_eqt_cnt + area + crop_acre + nh_num_people + -->
+<!--             I(Education_Attainment^2) + Education_Attainment + b_Health_conditions_in_last_two_weeks, data=acme_var) -->
+<!-- summary(edu) -->
+<!-- # Plot model diagnostics starting with the standardized residuals. -->
+<!-- hist(rstandard(edu), xlab="Standardized Residuals") -->
+<!-- # Now plot the residuals vs fitted. -->
+<!-- plot(fitted(edu), resid(edu), xlab="Fitted", ylab="Residuals") -->
