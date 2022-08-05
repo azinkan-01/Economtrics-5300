@@ -7,9 +7,10 @@ output: html_document
 
 # TODO:
 Read the instructions again!!!!!!!
-open up variables on the df and do backward feature emilination to select. 
-double check the index standardizetion. need to group by first. 
-Strip prep file maybe like the order of operations from cleaning
+
+- open up variables on the df and do backward feature emilination to select. 
+- double check the index standardizetion. might need to group by first. 
+
 
 ```{r setup, include=FALSE}
 knitr::opts_chunk$set(echo = TRUE)
@@ -29,6 +30,9 @@ library(Hmisc)
 library(tidyr)
 library(rlist)
 ```
+###  Restated Question:
+
+The College Scorecard was released at the start of September 2015. Among colleges that predominantly grant bachelor’s degrees, did the release of the Scorecard shift student interest to high-earnings colleges relative to low-earnings ones (as proxied by Google searches for keywords associated with those colleges)?
 
 #### _Load Data Transfromation Files_
 ```{r, results= "hide", message=FALSE, warning=FALSE}
@@ -43,10 +47,200 @@ google_trends_master <- google_trends_master %>%
   
 ```
 
-# Describe Google Trends Data
+#### _Join the final data for analysis_
+```{r}
+# Make the final data set and provide reasoning
+df <- google_trends_master %>% 
+  inner_join(school_master, by = c("opeid", "unitid"))
+
+df <- df %>% 
+  rename(schname = schname.y) %>% 
+  select(-c("schname.x", "unitid", "opeid", "opeid6", "INSTNM", "INSTURL", 
+            "NPCURL"))
+  
+
+```
+
+FOOT NOTES: 
+The first thing i want to do becase we have some many variables is reducde the columns to whats likly important. 
+
+#### _Remove High % NULL Columns_
+because there are a lot of variables in this file im going to reduce our viable column list quickly by eliminating measures with a lot of Null entries.
+
+This is rather arbitrary, however im selecting cut off of 25% null values and rejecting anything higher for the time being. Meaning that for consideration im only allowing up to 25% of the records for column to be null. 
+
+If over 25% of the records are null for a column im discarding them for now. 
+
+Using this code chunk to create my column list, Which i will then hide from the school data set. 
+```{}
+x <- map(df, ~mean(is.na(.))) 
+y <- data.frame(t(sapply(x,c)))
+ty <- t(y)
+mylist <- list()
+
+for(i in 1:123)
+ {
+  if (ty[i] >.25) {
+  mylist <- append(mylist, row.names(ty)[i])
+  }
+  else {
+  }
+}
+y <- data.frame(t(sapply(mylist,c)))
+ty <- t(y)
+<!-- paste(ty, collapse = '\n') %>% cat() -->
+
+```
+
+```{r, echo = FALSE}
+#removing variables with alot of na to cut down analysis
+df <- df %>% 
+  select(-c("RELAFFIL",
+            "SATVR25",
+            "SATVR75",
+            "SATMT25",
+            "SATMT75",
+            "SATWR25",
+            "SATWR75",
+            "SATVRMID",
+            "SATMTMID",
+            "SATWRMID",
+            "ACTCM25",
+            "ACTCM75",
+            "ACTEN25",
+            "ACTEN75",
+            "ACTMT25",
+            "ACTMT75",
+            "ACTWR25",
+            "ACTWR75",
+            "ACTCMMID",
+            "ACTENMID",
+            "ACTMTMID",
+            "ACTWRMID",
+            "SAT_AVG",
+            "SAT_AVG_ALL",
+            "NPT4_PUB.AVERAGE.ANNUAL.COST",
+            "NPT4_PRIV",
+            "NPT41_PUB",
+            "NPT42_PUB",
+            "NPT43_PUB",
+            "NPT44_PUB",
+            "NPT45_PUB",
+            "NPT41_PRIV",
+            "NPT42_PRIV",
+            "NPT43_PRIV",
+            "NPT44_PRIV",
+            "NPT45_PRIV",
+            "RET_FTL4",
+            "RET_PT4",
+            "RET_PTL4",
+            "C200_L4_POOLED_SUPP")) 
+
+```
+
+```{r, echo=FALSE}
+var_df <- df %>% 
+  top_n(10)
+
+# write.csv(var_df, "C:\\Users\\andre\\OneDrive\\R_Projects\\Economtrics-5300\\Generated_data\\df.csv", row.names=FALSE)
+```
+# TODO:
+- reset the descriptive prints with correct index discribe() func
+
+#### _Variables of interest_
+
+- variables identified to be related to our reaserch question. 
+
+
+|Variable|Description|
+|:----|:----|
+|start_of_week|the start of the week for the index value refers to|
+|after_score_card|Is week after the score card date 2015-09-01. T/F|
+|md_wk_std_idx|Normalized Index by school term|
+|schname|school name|
+|CITY|City|
+|STABBR|State postcode|
+|HCM2|Schools that are on Heightened Cash Monitoring 2 by the Department of Education|
+|PREDDEG|Predominant degree|
+|CONTROL|Control of institution|
+|LOCALE|Locale of institution|
+|HBCU|Flag for Historically Black College and University|
+|PBI|Flag for predominantly black institution|
+|ANNHI|Flag for Alaska Native Native Hawaiian serving institution|
+|TRIBAL|Flag for tribal college and university|
+|AANAPII|Flag for Asian American Native American Pacific Islander-serving institution|
+|HSI|Flag for Hispanic-serving institution|
+|NANTI|Flag for Native American non-tribal institution|
+|MENONLY|Flag for men-only college|
+|WOMENONLY|Flag for women-only college|
+|PCIP01|Percentage of degrees awarded in Agriculture, Agriculture Operations, And Related Sciences.|
+|PCIP03|Percentage of degrees awarded in Natural Resources And Conservation.|
+|PCIP04|Percentage of degrees awarded in Architecture And Related Services.|
+|PCIP05|Percentage of degrees awarded in Area, Ethnic, Cultural, Gender, And Group Studies.|
+|PCIP09|Percentage of degrees awarded in Communication, Journalism, And Related Programs.|
+|PCIP10|Percentage of degrees awarded in Communications Technologies/Technicians And Support Services.|
+|PCIP11|Percentage of degrees awarded in Computer And Information Sciences And Support Services.|
+|PCIP12|Percentage of degrees awarded in Personal And Culinary Services.|
+|PCIP13|Percentage of degrees awarded in Education.|
+|PCIP14|Percentage of degrees awarded in Engineering.|
+|PCIP15|Percentage of degrees awarded in Engineering Technologies And Engineering-Related Fields.|
+|PCIP16|Percentage of degrees awarded in Foreign Languages, Literatures, And Linguistics.|
+|PCIP19|Percentage of degrees awarded in Family And Consumer Sciences/Human Sciences.|
+|PCIP22|Percentage of degrees awarded in Legal Professions And Studies.|
+|PCIP23|Percentage of degrees awarded in English Language And Literature/Letters.|
+|PCIP24|Percentage of degrees awarded in Liberal Arts And Sciences, General Studies And Humanities.|
+|PCIP25|Percentage of degrees awarded in Library Science.|
+|PCIP26|Percentage of degrees awarded in Biological And Biomedical Sciences.|
+|PCIP27|Percentage of degrees awarded in Mathematics And Statistics.|
+|PCIP29|Percentage of degrees awarded in Military Technologies And Applied Sciences.|
+|PCIP30|Percentage of degrees awarded in Multi/Interdisciplinary Studies.|
+|PCIP31|Percentage of degrees awarded in Parks, Recreation, Leisure, And Fitness Studies.|
+|PCIP38|Percentage of degrees awarded in Philosophy And Religious Studies.|
+|PCIP39|Percentage of degrees awarded in Theology And Religious Vocations.|
+|PCIP40|Percentage of degrees awarded in Physical Sciences.|
+|PCIP41|Percentage of degrees awarded in Science Technologies/Technicians.|
+|PCIP42|Percentage of degrees awarded in Psychology.|
+|PCIP43|Percentage of degrees awarded in Homeland Security, Law Enforcement, Firefighting And Related Protective Services.|
+|PCIP44|Percentage of degrees awarded in Public Administration And Social Service Professions.|
+|PCIP45|Percentage of degrees awarded in Social Sciences.|
+|PCIP46|Percentage of degrees awarded in Construction Trades.|
+|PCIP47|Percentage of degrees awarded in Mechanic And Repair Technologies/Technicians.|
+|PCIP48|Percentage of degrees awarded in Precision Production.|
+|PCIP49|Percentage of degrees awarded in Transportation And Materials Moving.|
+|PCIP50|Percentage of degrees awarded in Visual And Performing Arts.|
+|PCIP51|Percentage of degrees awarded in Health Professions And Related Programs.|
+|PCIP52|Percentage of degrees awarded in Business, Management, Marketing, And Related Support Services.|
+|PCIP54|Percentage of degrees awarded in History.|
+|DISTANCEONLY|Flag for distance-education-only education|
+|UGDS|Enrollment of undergraduate degree-seeking students|
+|UGDS_WHITE|Total share of enrollment of undergraduate degree-seeking students who are white|
+|UGDS_BLACK|Total share of enrollment of undergraduate degree-seeking students who are black|
+|UGDS_HISP|Total share of enrollment of undergraduate degree-seeking students who are Hispanic|
+|UGDS_ASIAN|Total share of enrollment of undergraduate degree-seeking students who are Asian|
+|UGDS_AIAN|Total share of enrollment of undergraduate degree-seeking students who are American Indian/Alaska Native|
+|UGDS_NHPI|Total share of enrollment of undergraduate degree-seeking students who are Native Hawaiian/Pacific Islander|
+|UGDS_2MOR|Total share of enrollment of undergraduate degree-seeking students who are two or more races|
+|UGDS_NRA|Total share of enrollment of undergraduate degree-seeking students who are non-resident aliens|
+|UGDS_UNKN|Total share of enrollment of undergraduate degree-seeking students whose race is unknown|
+|PPTUG_EF|Share of undergraduate, degree-/certificate-seeking students who are part-time|
+|CURROPER|Flag for currently operating institution, 0=closed, 1=operating|
+|PCTPELL|Percentage of undergraduates who receive a Pell Grant|
+|RET_FT4|First-time, full-time student retention rate at four-year institutions|
+|PCTFLOAN|Percent of all federal undergraduate students receiving a federal student loan|
+|UG25abv|Percentage of undergraduates aged 25 and above|
+|GRAD_DEBT_MDN_SUPP|Median debt of completers, suppressed for n=30|
+|GRAD_DEBT_MDN10YR_SUPP|Median debt of completers expressed in 10-year monthly payments, suppressed for n=30|
+|RPY_3YR_RT_SUPP|3-year repayment rate, suppressed for n=30|
+|C150_4_POOLED_SUPP.REPORTED.GRAD.RATE|#N/A|
+|md_reported_ern_10yr|Median earnings of students working and not enrolled 10 years after entry|
+|gt_25k_p6|Share of students earning over $25,000/year (threshold earnings) 6 years after entry|
+
+
+# Describe Data Set
+Data will be descibed for selected variables on interest
 Lets start by looking at some basic statistics for each data source. 
 ```{r}
-di <- describe(google_trends_master)
+di <- describe(df)
 ```
 Observations:
 1386 unique university observations
@@ -97,6 +291,9 @@ Mean raw index rating = 48.11
 **Note that we have lopsided data (only 19% of our records are taken after the score card came out)
 we'll want to adjust our sample to be random and more even distribution of true and false records. 
 
+#TODO
+- see if you can make this happen but dont try to  hard.
+dont mess with SMOTE becase it could mess up r and you dont have time
 
 #### _selecting random sample_
 
@@ -108,188 +305,25 @@ we'll want to adjust our sample to be random and more even distribution of true 
 
 ```
 
-```{r, echo=FALSE, results= "hide", warning = FALSE}
-
-# plot density for the index rankings
-ggplot(google_trends_master, aes(x= as.numeric(index), fill=after_score_card, alpha = 0.4)) + 
-  geom_density()
-
-```
-Observations:
-Normal Distribution
-No sizable differnece in distobution before vs after score card release
-
-```{r, echo=FALSE, results= "hide", warning = FALSE}
-# plot density for the index rankings
-ggplot(google_trends_master, aes(x= as.numeric(standard_idx), fill=after_score_card, alpha = 0.4)) + 
-  geom_density()
-
-```
-Observations:
-Looking at the standardized index we see even more similarity among distributions. 
-`distribution` of rating do not appear to be changing before vs after score care release. 
-
-#### _Select L.O.D for Trends Data_
-This data does however have some thing we need to adjust for. Some Schools have more key words tracked than others, this means that certain school have more data available than others and cast a wider net for terms.
-
-This is the distribution of unique terms among schools:
-
-```{r}
-unique_keyword_count <- google_trends_master %>% 
-  group_by(schname) %>%
-  summarise(count_unique = n_distinct(keyword)) %>%
-  arrange(., desc(count_unique))
-
-# Histogram overlaid with kernel density curve
-ggplot(unique_keyword_count, aes(x=count_unique)) +
-    geom_histogram(aes(y=..density..),      # Histogram with density instead of count on y-axis
-                   binwidth=.5,
-                   colour="black", fill="white") +
-    geom_density(alpha=.2, fill="#FF6666")  # Overlay with transparent density plot
-```
-Note the distribution is count of unique terms tracker per school. 
-Majority of scholls have 2 - 4 terms tracked, but some schools have a higher number of terms. 
-
-Because there are a varying number of keye terms tracked i want to aggregat this data to by school, week, and cumilitive index for all terms tracked for them. 
-
-to account for this issue ive selected to  take the median of standardized indexes per week per school.  
-
-#### _Aggregate the trends data_
-
-```{r}
-google_trends_agg <- google_trends_master %>% 
-  select(-c("index", "mean_index", "std_index", "idx_minus_mean")) %>% 
-  group_by(unitid, opeid, schname, start_of_week, after_score_card) %>%
-  summarise(md_wk_std_idx = median(standard_idx)) %>%
-  arrange(., start_of_week )
-
-head(google_trends_agg)
-```
-
-This gives us 1 index measurement per school per week -> `md_wk_std_idx`
-
-# Describe School Data
-Now lets look at our school data.
-**this data is much larger (126 different variables), so I wont depict it graphically in this report.
-
-#### _Percentage of missing data_
-because there are a lot of variables in this file im going to reduce our viable column list quickly by eliminating measures with a lot of Null entries.
-
-This is rather arbitrary, however im selecting cut off of 25% null values and rejecting anything higher for the time being. Meaning that for consideration im only allowing up to 25% of the records for column to be null. 
-
-If over 25% of the records are null for a column im discarding them for now. 
-
-Using this code chunk to create my column list, Which i will then hide from the school data set. 
-```{}
-x <- map(school_master, ~mean(is.na(.))) 
-y <- data.frame(t(sapply(x,c)))
-ty <- t(y)
-mylist <- list()
-
-for(i in 1:123)
- {
-  if (ty[i] >.25) {
-  mylist <- append(mylist, row.names(ty)[i])
-  }
-  else {
-  }
-}
-y <- data.frame(t(sapply(mylist,c)))
-ty <- t(y)
-# paste(ty, collapse = '\n') %>% cat()
-
-```
-
-```{r, echo = FALSE}
-#removing variables with alot of na to cut down analysis
-school_trim <- school_master %>% 
-  select(-c("RELAFFIL",
-            "SATVR25",
-            "SATVR75",
-            "SATMT25",
-            "SATMT75",
-            "SATWR25",
-            "SATWR75",
-            "SATVRMID",
-            "SATMTMID",
-            "SATWRMID",
-            "ACTCM25",
-            "ACTCM75",
-            "ACTEN25",
-            "ACTEN75",
-            "ACTMT25",
-            "ACTMT75",
-            "ACTWR25",
-            "ACTWR75",
-            "ACTCMMID",
-            "ACTENMID",
-            "ACTMTMID",
-            "ACTWRMID",
-            "SAT_AVG",
-            "SAT_AVG_ALL",
-            "NPT4_PUB.AVERAGE.ANNUAL.COST",
-            "NPT4_PRIV",
-            "NPT41_PUB",
-            "NPT42_PUB",
-            "NPT43_PUB",
-            "NPT44_PUB",
-            "NPT45_PUB",
-            "NPT41_PRIV",
-            "NPT42_PRIV",
-            "NPT43_PRIV",
-            "NPT44_PRIV",
-            "NPT45_PRIV",
-            "RET_FTL4",
-            "RET_PT4",
-            "RET_PTL4",
-            "C200_L4_POOLED_SUPP")) 
-
-```
-
-#### _Variables of interest_
-Now that i have narrowed down the variables im going to select variables of interest that apply to our research question. 
-
-Variables of interest:
-
-|Definition|Variable|Type|
-|:----|:----|:----|
-|City|CITY|Location|
-|State postcode|STABBR|Location|
-|ZIP code|ZIP|Location|
-|FIPS code for state|st_fips|Location|
-|Locale of institution|LOCALE|Location|
-|Admission rate|ADM_RATE|Admissions|
-|Admission rate for all campuses rolled up to the 6-digit OPE ID|ADM_RATE_ALL|Admissions|
-|Enrollment of undergraduate degree-seeking students|UGDS|Enrollment|
-|Total share of enrollment of undergraduate degree-seeking students who are white|UGDS_WHITE|Enrolment-Race|
-|Total share of enrollment of undergraduate degree-seeking students who are black|UGDS_BLACK|Enrolment-Race|
-|Total share of enrollment of undergraduate degree-seeking students who are Hispanic|UGDS_HISP|Enrolment-Race|
-|Total share of enrollment of undergraduate degree-seeking students who are Asian|UGDS_ASIAN|Enrolment-Race|
-| |mn_earn_wne_p10|Earniing|
-| |md_reported_ern_10yr|Earniing|
-| |pct10_earn_wne_p10|Earniing|
-| |pct25_earn_wne_p10|Earniing|
-| |pct75_earn_wne_p10|Earniing|
-| |pct90_earn_wne_p10|Earniing|
-| |sd_earn_wne_p10|Earniing|
-| |count_wne_inc1_p10|income|
-| |count_wne_inc2_p10|income|
-| |count_wne_inc3_p10|income|
 
 
 
-#### Describe Variables
 
-more variables to look at here!!!
 
+
+
+
+
+
+# Feature creation
 
 #### _Identify "high-earning" and "low-earning" Earning Schools_
 Our research questions states “high-earning” vs “low-earning” colleges earning, so how can we define “high” vs “low”? Lets first look at the distribution of earnings among colleges.
 ```{r}
 # Histogram overlaid with kernel density curve
-ggplot(school_trim, aes(x=md_reported_ern_10yr)) +
+ggplot(df, aes(x=md_reported_ern_10yr)) +
     geom_histogram(aes(y=..density..),      # Histogram with density instead of count on y-axis
-                   binwidth=100,
+                   binwidth= 10,
                    colour="black", fill="white") +
     geom_density(alpha=.2, fill="#FF6666", stat="count")  # Overlay with transparent density plot
 ```
@@ -299,7 +333,7 @@ Density in this case is the `count` of colleges that fall in that earning spectr
 
 This plot has a lot of noise in it though so lets smooth it out and look at densisty. 
 ```{r}
-ggplot(school_trim, aes(x= as.numeric(md_reported_ern_10yr))) + geom_density()
+ggplot(df, aes(x= md_reported_ern_10yr)) + geom_density()
 
 ```
 
@@ -308,14 +342,15 @@ We can see tho that this data is skewed to the right, indicating that while most
 
 to adjust for the skew and normalizes the data a bit we'll take the log of earnings
 ```{r}
-ggplot(school_trim, aes(x= log(as.numeric(md_reported_ern_10yr)))) + geom_density()
+ggplot(df, aes(x= log(as.numeric(md_reported_ern_10yr)))) + geom_density()
 ```
 Now we can see that we account for the long tails and tthat the data more closely represents a normal curve when represented as a log().
 This indicate that if we are to use the earnings in this analysis (Which we are) we should probably explore its representation inits log() form. 
 
+#### _Create Feature - log of earnings_
 Storing the log value as a column. 
 ```{r,  message=FALSE, warning=FALSE}
-school_trim <- school_trim %>%
+df <- df %>%
   mutate(log_mean_10_yr_earnings = log(md_reported_ern_10yr))
 ```
 
@@ -331,9 +366,10 @@ Looking at the data dictionary income/ earning levels are consistently categoriz
 Since this is the standard according to the data dictionary i dont think it would be wrong to follow suit in our classification.
 SO we'll add this classification as a feature for later use.
 
+#### _Create Feature - low-med-high_
 ```{r, message=FALSE, warning=FALSE}
-school_trim <- school_trim %>%
-  mutate(Income_level_standard = case_when(as.numeric(md_reported_ern_10yr) < 30000 ~ 'Low',
+df <- df %>%
+  mutate(low_med_high_ern = case_when(as.numeric(md_reported_ern_10yr) < 30000 ~ 'Low',
                              as.numeric(md_reported_ern_10yr) > 75000 ~ 'High',
                              TRUE ~ 'Med'))
 ```
@@ -342,43 +378,43 @@ Using this classification of high vs low however cuts out the mean of my sample 
 
 For this ill be splitting it on the `median` for the entire sample. Selecting not to use mean here as earnings as we saw graphically (above) are highly skewed, median however will help us get a less skewed center. 
 
+#### _Create Feature - low-high_
 ```{r}
 # median earnings
-median_val = median(school_trim$md_reported_ern_10yr)
-school_trim <- school_trim %>%
-  mutate(Inc_High_Low = case_when(md_reported_ern_10yr <= median_val ~ 'Low',
+median_val = median(df$md_reported_ern_10yr)
+df <- df %>%
+  mutate(low_high_ern = case_when(md_reported_ern_10yr <= median_val ~ 'Low',
                              TRUE ~ 'High'))
 
 ```
 
-#### _Join the final data for analysis_
-```{r}
-# Make the final data set and provide reasoning
-df <- google_trends_agg %>% 
-  inner_join(school_trim, by = c("opeid", "unitid"))
-
-```
-
-# EDA
-
-#### _add features_ 
+#TODO:
+- add month feature
+- change week over week as a feature
 
 ```{r}
 # then add features, interactions, strip month, look for difference or change in metrics each week 
 # This section we'll identify high earning school/ how and why, etc.  
 # TODO: use ymd() on date. see https://nickch-k.github.io/EconometricsSlides/Week_06/Week_06_Bonus_Project_Data_Cleaning.html#6
 ```
- 
 
-### _Search Levels Over Time_
 
+
+
+
+
+
+
+# EDA
+
+TODO: DO the below by month too
 ```{r, warning =FALSE}
 agg <-  df %>% 
-  group_by(Inc_High_Low, start_of_week) %>% 
+  group_by(low_high_ern, start_of_week) %>% 
   summarise(md_wk_std_idx=mean(md_wk_std_idx)) %>% 
   arrange(., start_of_week)
 
-ggplot(data = agg, mapping = aes(x=start_of_week, y=md_wk_std_idx, color= Inc_High_Low, group=Inc_High_Low))+
+ggplot(data = agg, mapping = aes(x=start_of_week, y=md_wk_std_idx, color= low_high_ern, group=low_high_ern))+
   geom_path()+
   geom_point()+
   scale_y_continuous(limits = c(0,1), breaks = seq(0,1,5), expand = c(0,0))+
@@ -391,7 +427,7 @@ Note we do not have continuous data there are gaps in time not accounted for. (W
 
 ```{r}
 agg <-  df %>% 
-  group_by(schname.x, after_score_card, Inc_High_Low) %>% 
+  group_by(schname, after_score_card, low_high_ern) %>% 
   summarise(md_wk_std_idx=mean(md_wk_std_idx), 
             log_mean_10_yr_earnings = mean(log_mean_10_yr_earnings),
             PCIP04 = mean(PCIP04))
@@ -404,24 +440,19 @@ ggplot(data=agg, aes(y = md_wk_std_idx, x = log_mean_10_yr_earnings))+
 
 ```{r}
 agg <-  df %>% 
-  group_by(schname.x, after_score_card, Inc_High_Low) %>% 
+  group_by(schname, after_score_card, low_high_ern) %>% 
   summarise(md_wk_std_idx=mean(md_wk_std_idx), 
             log_mean_10_yr_earnings = mean(log_mean_10_yr_earnings),
             PCIP04 = mean(PCIP04))
 
 ggplot(data=agg, aes(y = md_wk_std_idx, x = log_mean_10_yr_earnings))+
-  geom_point(aes(color = factor(Inc_High_Low)))+
-  labs(y = 'Index', x = 'Median 10 Yr Earnings', color = 'Inc_High_Low')
+  geom_point(aes(color = factor(low_high_ern)))+
+  labs(y = 'Index', x = 'Median 10 Yr Earnings', color = 'low_high_ern')
 
 ```
 
-#### _add features_ 
 
-```{r}
-# then add features, interactions, strip month, look for difference or change in metrics each week 
-# This section we'll identify high earning school/ how and why, etc.  
-```
-
+#### _dagity.net for possible factors_
 
 
 #### _modeling_
@@ -430,23 +461,24 @@ ggplot(data=agg, aes(y = md_wk_std_idx, x = log_mean_10_yr_earnings))+
 # plots and scatter plots
 ```
 
+
 ```{r}
-library(corrplot)
-
-write.csv(df, "C:\\Users\\andre\\OneDrive\\R_Projects\\Economtrics-5300\\Generated_data\\master_df.csv", row.names=FALSE)
-
-
-df_trim <- df %>% 
-  select(md_wk_std_idx, log_mean_10_yr_earnings,md_reported_ern_10yr, LOCALE, MENONLY,WOMENONLY,UGDS, Income_level_standard, Inc_High_Low )
-
-# Backward feature elimination
-fitall <- lm( md_wk_std_idx ~ .-opeid-unitid, data = df_trim)
-summary(fitall)
-# Pick the main variables
-acme_var = df_trim %>% select(profit_acre, region, Unique_eqt_cnt, area,
-                                crop_acre, Education_Attainment,
-                                b_Health_conditions_in_last_two_weeks, nh_num_people)
-summary(acme_var)
+# library(corrplot)
+# 
+# write.csv(df, "C:\\Users\\andre\\OneDrive\\R_Projects\\Economtrics-5300\\Generated_data\\master_df.csv", row.names=FALSE)
+# 
+# 
+# df_trim <- df %>% 
+#   select(md_wk_std_idx, log_mean_10_yr_earnings,md_reported_ern_10yr, LOCALE, MENONLY,WOMENONLY,UGDS, low_med_high_ern, low_high_ern )
+# 
+# # Backward feature elimination
+# fitall <- lm( md_wk_std_idx ~ .-opeid-unitid, data = df_trim)
+# summary(fitall)
+# # Pick the main variables
+# acme_var = df_trim %>% select(profit_acre, region, Unique_eqt_cnt, area,
+#                                 crop_acre, Education_Attainment,
+#                                 b_Health_conditions_in_last_two_weeks, nh_num_people)
+# summary(acme_var)
 
 ```
 
