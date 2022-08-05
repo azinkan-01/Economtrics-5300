@@ -177,7 +177,8 @@ library(ggplot2)
 library(dplyr)
 library(vtable)
 library(fixest)
-library(tidyr)</code></pre>
+library(tidyr)
+library(lubridate)</code></pre>
 <div id="restated-question" class="section level3">
 <h3>Restated Question:</h3>
 <p>The College Scorecard was released at the start of September 2015. Among colleges that predominantly grant bachelor’s degrees, did the release of the Scorecard shift student interest to high-earnings colleges relative to low-earnings ones (as proxied by Google searches for keywords associated with those colleges)?</p>
@@ -339,8 +340,15 @@ IDNameLinkStage &lt;- filter(IDNameLinkStage, opeid %in% NotNull_Filter)</code><
 </div>
 <div id="data-transformation-trend-data" class="section level2">
 <h2>Data Transformation Trend data</h2>
-<div id="make-indices-reasonably-comparable" class="section level4">
-<h4><em>Make Indices reasonably comparable</em></h4>
+</div>
+<div id="todo" class="section level1">
+<h1>TODO:</h1>
+<ul>
+<li>Double check the index changes</li>
+<li>use month() from lubridate to pull the month out of your date variable</li>
+</ul>
+<div id="union-all-trend-data" class="section level4">
+<h4><em>Union All Trend Data</em></h4>
 <p>union all the Trends Data as one dataframe</p>
 <pre class="r"><code># Union the Trends Data
 TrendsAppendedDf &lt;- rbind(TrendsUpToInter_1_Raw, TrendsUpToInter_2_Raw, TrendsUpToInter_3_Raw, TrendsUpToInter_4_Raw, TrendsUpToInter_5_Raw, TrendsUpToInter_6_Raw, TrendsUpToUmRaw, TrendsUpToUphoenixRaw, TrendsUpToUtmbRaw, TrendsUpToUtmbRaw, TrendsUpToYorktowneRaw, TrendsUpToFinishRaw )</code></pre>
@@ -385,11 +393,14 @@ Trends &lt;- Trends %&gt;%
 Trends &lt;- Trends %&gt;% 
   mutate(after_score_card = if_else(start_of_week &gt;= as.Date(&quot;2015-09-01&quot;, format=&quot;%Y-%m-%d&quot;), TRUE, FALSE))</code></pre>
 </div>
-<div id="no-null-dates_" class="section level4">
-<h4>_ No Null Dates_</h4>
-<p>As this question is related to the function of time we need to deal with the records that are not associated witha time frame. It should be noted that these records also lack any index information. Likely was complied from source incorrectly or reflects API querries where data was not available at that time.</p>
+<div id="no-null-dates" class="section level4">
+<h4><em>No Null Dates</em></h4>
+<p>As this question is related to the function of time we need to deal with the records that are not associated with a time frame. It should be noted that these records also lack any index information. Likely was complied from source incorrectly or reflects API querries where data was not available at that time.</p>
 <pre class="r"><code>Trends &lt;- Trends %&gt;% 
   filter(!is.na(start_of_week))</code></pre>
+</div>
+<div id="make-indices-reasonably-comparable" class="section level4">
+<h4><em>Make Indices reasonably comparable</em></h4>
 <pre class="r"><code># Key Level Mean
 key_level_idx &lt;- Trends %&gt;% 
   select(schname,keyword,index, ) %&gt;% 
@@ -400,9 +411,17 @@ key_level_idx &lt;- Trends %&gt;%
 # Join raw and idk level
 Trends &lt;- Trends %&gt;% 
   inner_join(key_level_idx, by = c(&quot;schname&quot;, &quot;keyword&quot;)) %&gt;% 
-  select(schname, keyword, start_of_week, index, mean_index, std_index, after_score_card) %&gt;%
-  mutate(idx_minus_mean = index-mean_index, standard_idx = idx_minus_mean/std_index)</code></pre>
+  mutate(standard_idx = (index-mean_index)/std_index) %&gt;% 
+  select(schname, keyword, start_of_week,  standard_idx, after_score_card)</code></pre>
 </div>
+<div id="aggregate-the-trends-data" class="section level4">
+<h4><em>Aggregate the Trends Data</em></h4>
+<p>grouping by shool-week Why?</p>
+<pre class="r"><code>Trends &lt;- Trends %&gt;% 
+  group_by(schname, start_of_week, after_score_card) %&gt;%
+  summarise(md_wk_std_idx = median(standard_idx)) %&gt;%
+  arrange(., start_of_week )</code></pre>
+<pre><code>## `summarise()` has grouped output by &#39;schname&#39;, &#39;start_of_week&#39;. You can override using the `.groups` argument.</code></pre>
 </div>
 <div id="master-data" class="section level2">
 <h2>Master Data</h2>
@@ -427,6 +446,7 @@ Trends &lt;- Trends %&gt;%
 <p>Holding out our mutation steps in this code and producing one school data frame and one goolg etrends data set allows for faster and cleaner downstream modeling.</p>
 <pre class="r"><code>write.csv(school_master, &quot;C:\\Users\\andre\\OneDrive\\R_Projects\\Economtrics-5300\\Generated_data\\school_master.csv&quot;, row.names=FALSE)</code></pre>
 <pre class="r"><code>write.csv(google_trends_master, &quot;C:\\Users\\andre\\OneDrive\\R_Projects\\Economtrics-5300\\Generated_data\\google_trends_master.csv&quot;, row.names=FALSE)</code></pre>
+</div>
 </div>
 
 

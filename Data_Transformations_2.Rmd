@@ -17,20 +17,9 @@ library(dplyr)
 library(vtable)
 library(fixest)
 library(tidyr)
+library(lubridate)
 ```
-
-###  Restated Question:
-
-The College Scorecard was released at the start of September 2015. Among colleges that predominantly grant bachelor’s degrees, did the release of the Scorecard shift student interest to high-earnings colleges relative to low-earnings ones (as proxied by Google searches for keywords associated with those colleges)?
-
-REQ:
-
-- You will need to produce at least one regression and one graph for your analysis, and explain them.
-
-#### Recommended Data Cleaning
- - What level should the data be at? You can leave the data as is, with one row per week per keyword. Or group_by and summarize to put things to one week per college, or one month per college, or one month per keyword, etc. etc.
-    - lets group by college, keyword and week. we need to keep college to tie back what colleges and associated measues imapct searches, we'll group by week as the index is recorded is weekly intervals (keep more data granularity), and we'll do it by keyword as we dont have way to really add or average index across keys as they are not dirrectly comparable. 
-
+## Data Transformation for Score Card Data
 
 ```{r, echo = FALSE, results= "hide", message=FALSE, warning=FALSE}
 # Running the raw data
@@ -51,7 +40,6 @@ TrendsUpToUtRaw <- read.csv("Data_Exploration/trends_up_to_UT.csv", na.strings =
 TrendsUpToUtmbRaw <- read.csv("Data_Exploration/trends_up_to_UTMB.csv", na.strings = c("","NA","NULL",NULL))
 TrendsUpToYorktowneRaw <- read.csv("Data_Exploration/trends_up_to_Yorktowne.csv", na.strings = c("","NA","NULL",NULL))
 ```
-## Data Transformation for Score Card Data
 
 #### _Drop opeid's that are not unique observations_
 This is in an effort to remove any `many to one` relationships when joining OPEID
@@ -92,7 +80,7 @@ ScoreCardDataStage <- filter(ScoreCardDataStage, OPEID %in% NotSuppressed_filter
 7738 records -> 5584 records
 2154 records removed
 
-#### _Drop Null values in earnings data_
+#### _Drop NULL values in earnings data_
 Want to drop null values for the same reason we want to drop the suppressed data 
 
 ```{r}
@@ -108,7 +96,7 @@ ScoreCardDataStage <- filter(ScoreCardDataStage, OPEID %in% NotNull_Filter)
 ```
 5584 records -> 5584 records
 
-#### _Data Cleaning_
+#### _Renaming_
 ```{r}
 ScoreCardDataStage <- ScoreCardDataStage %>% 
   mutate(md_earn_wne_p10.REPORTED.EARNINGS = as.numeric(ScoreCardDataStage$md_earn_wne_p10.REPORTED.EARNINGS))
@@ -146,7 +134,7 @@ Starting with 3595 Schools
 Our first filter results in 3557 remaining schools
 38 universities removed
 
-#### _Drop non unique universities names_
+#### _Drop non unique Universities Names_
 ```{r}
 # Identify names that have more than one opeid
 unique_ids <- IDNameLinkRaw %>% 
@@ -220,7 +208,6 @@ This filter results in 1804 records, removing an additional 0 universities.
 
 # TODO: 
 
-- Double check the index changes
 - use month() from lubridate to pull the month out of your date variable
 
 #### _Union All Trend Data_
@@ -247,7 +234,6 @@ Score card was added beginning of sept 2015
 ```{r, message=FALSE, warning=FALSE}
 # separate dates
 Trends <- separate(Trends, col=monthorweek, into=c('start_of_week', 'end_of_week'), sep=' - ')
-head(Trends)
 
 # Convert to date type
 Trends <- Trends %>% 
@@ -280,15 +266,24 @@ key_level_idx <- Trends %>%
 # Join raw and idk level
 Trends <- Trends %>% 
   inner_join(key_level_idx, by = c("schname", "keyword")) %>% 
-  select(schname, keyword, start_of_week, index, mean_index, std_index, after_score_card) %>%
-  mutate(idx_minus_mean = index-mean_index, standard_idx = idx_minus_mean/std_index)
+  mutate(standard_idx = (index-mean_index)/std_index) %>% 
+  select(schname, keyword, start_of_week,  standard_idx, after_score_card)
 
 ```
 
+#### _Add Date info_
+```{r}
+# add month
+Trends <- Trends %>% 
+  mutate(start_of_month = format(as.Date(start_of_week), "%Y-%m"))
+```
+
 #### _Aggregate the Trends Data_
+grouping by shool-week 
+Why?:
+we need to keep college to tie back what colleges and associated measues imapct searches, we'll group by week as the index is recorded is weekly intervals (keep more data granularity)
 ```{r}
 Trends <- Trends %>% 
-  select(-c("index", "mean_index", "std_index", "idx_minus_mean")) %>% 
   group_by(schname, start_of_week, after_score_card) %>%
   summarise(md_wk_std_idx = median(standard_idx)) %>%
   arrange(., start_of_week )

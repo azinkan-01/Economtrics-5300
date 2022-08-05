@@ -8,8 +8,9 @@ output: html_document
 # TODO:
 Read the instructions again!!!!!!!
 
-- open up variables on the df and do backward feature emilination to select. 
 - double check the index standardizetion. might need to group by first. 
+- need to move into modelign ASAP. 
+- open up variables on the df and do backward feature emilination to select. 
 
 
 ```{r setup, include=FALSE}
