@@ -5,13 +5,6 @@ date: "8/3/2022"
 output: html_document
 ---
 
-# TODO:
-Read the instructions again!!!!!!!
-
-- double check the index standardizetion. might need to group by first. 
-- need to move into modelign ASAP. 
-- open up variables on the df and do backward feature emilination to select. 
-
 
 ```{r setup, include=FALSE}
 knitr::opts_chunk$set(echo = TRUE)
@@ -30,6 +23,8 @@ library(Hmisc)
 # library(DMwR)
 library(tidyr)
 library(rlist)
+library(lubridate)
+library(summarytools)
 ```
 ###  Restated Question:
 
@@ -44,114 +39,130 @@ school_master <- read.csv("Generated_data/school_master.csv", na.strings = c("",
 
 ```{r, echo = FALSE ,results= "hide", message=FALSE, warning=FALSE}
 google_trends_master <- google_trends_master %>% 
-  mutate(start_of_week = as.Date(start_of_week, format="%Y-%m-%d"))
+  mutate(start_of_week = as.Date(start_of_week, format="%Y-%m-%d")) %>% 
+  mutate(start_of_month = as.Date(start_of_month, format="%Y-%m-%d")) %>% 
+  mutate(month_num = month(start_of_month))
   
 ```
 
 #### _Join the final data for analysis_
+This will create our mastered dataset
 ```{r}
 # Make the final data set and provide reasoning
 df <- google_trends_master %>% 
   inner_join(school_master, by = c("opeid", "unitid"))
 
 df <- df %>% 
-  rename(schname = schname.y) %>% 
-  select(-c("schname.x", "unitid", "opeid", "opeid6", "INSTNM", "INSTURL", 
+  rename(schname = schname.x) %>% 
+  select(-c("schname.y", "unitid", "opeid", "opeid6", "INSTNM", "INSTURL", 
             "NPCURL"))
   
 
 ```
 
-FOOT NOTES: 
-The first thing i want to do becase we have some many variables is reducde the columns to whats likly important. 
+#### _Dagity_
 
-#### _Remove High % NULL Columns_
-because there are a lot of variables in this file im going to reduce our viable column list quickly by eliminating measures with a lot of Null entries.
+The diagram below represents some of the high level variable interactions that pertain to our research question. 
+Notice that we have a lot of factors that play into the "Google search terms" but not many that directly impact "score card". 
 
-This is rather arbitrary, however im selecting cut off of 25% null values and rejecting anything higher for the time being. Meaning that for consideration im only allowing up to 25% of the records for column to be null. 
+We also have a lot of unmeasurable high level variables that are related to search volumes, such as current events, news coverage, prestige or brand awareness, & culture. 
 
-If over 25% of the records are null for a column im discarding them for now. 
+All of these variables can play into the Google Search traffic but they dont impact the score card release date.  
 
-Using this code chunk to create my column list, Which i will then hide from the school data set. 
-```{}
-x <- map(df, ~mean(is.na(.))) 
-y <- data.frame(t(sapply(x,c)))
-ty <- t(y)
-mylist <- list()
+The only thing need's to control for in this case is time & seasonality as anything that changes over time is a potential source of endogeneity for a time related event.  
 
-for(i in 1:123)
- {
-  if (ty[i] >.25) {
-  mylist <- append(mylist, row.names(ty)[i])
-  }
-  else {
-  }
-}
-y <- data.frame(t(sapply(mylist,c)))
-ty <- t(y)
-<!-- paste(ty, collapse = '\n') %>% cat() -->
+*** Note:
+The Scorecard policy is implemented at a particular time, and looking at how the Scorecard shifted interest really means looking at whether interest shifted at that particular time. This means that anything that changes over time is a potential source of endogeneity, even if it isn't inherently related to the Scorecard
+
+![Dagity Plot](dagity.jpg)
+
+
+# Variable Selection
+There are a lot of variables in this data set available for use, however many of which do not have an intuitive or direct connection to search volumes or score card. Before I go into EDA and modeling I want to reduce our data to a more concise and targeted variable set. 
+
+#### _Removal of PCIP Variables_
+The PCIC or "Percentage of degrees awarded in a {specific field}" variables are  high column count but low in explanatory value, at least for our research question.  Intuitively i cant reason how or why the % of degrees awarded for a particular field would be at all related to Google search traffic for a university, nor would it impact the score card being released or when.  
+
+Just for good measure im going to run a very simply linear model to see if there is any variable worth looking into more. 
+From the results (below) i conclude that these variables do not have individual or cumulative explanatory power over our depended variable (search volume).
+
+There for im removing them from the analysis. 
+```{r}
+# paste(colnames(df), collapse = " + ")
+
+m1 <- feols(md_wk_std_idx ~ PCIP03 + PCIP04 + PCIP05 + PCIP09 + PCIP10 + PCIP11 + PCIP12 + PCIP13 + PCIP14 + PCIP15 + PCIP16 + PCIP19 + PCIP22 + PCIP23 + PCIP24 + PCIP25 + PCIP26 + PCIP27 + PCIP29 + PCIP30 + PCIP31 + PCIP38 + PCIP39 + PCIP40 + PCIP41 + PCIP42 + PCIP43 + PCIP44 + PCIP45 + PCIP46 + PCIP47 + PCIP48 + PCIP49 + PCIP50 + PCIP51 + PCIP52 ,data = df)
+etable(m1)
+```
+
+
+
+```{r, echo = FALSE}
+
+# paste(dQuote(colnames(df)), collapse = ", ")
+
+#removing variables with alot of na to cut down analysis
+df <- df %>% 
+  select(-c("PCIP01", "PCIP03", "PCIP04", "PCIP05", "PCIP09", "PCIP10", "PCIP11", "PCIP12", "PCIP13", "PCIP14", "PCIP15", "PCIP16", "PCIP19", "PCIP22", "PCIP23", "PCIP24", "PCIP25", "PCIP26", "PCIP27", "PCIP29", "PCIP30", "PCIP31", "PCIP38", "PCIP39", "PCIP40", "PCIP41", "PCIP42", "PCIP43", "PCIP44", "PCIP45", "PCIP46", "PCIP47", "PCIP48", "PCIP49", "PCIP50", "PCIP51", "PCIP52", "PCIP54")) 
 
 ```
 
+#### _Removal of Demographic Variables_
+Additional I want to remove Race/ Ethnicity flags from our data set.While interesting for another study this data dose not pertain to our research question at hand, nor do I intuitively see any connection with school demographics and Google search volumes.
+```{r}
+# paste(colnames(df), collapse = " + ")
+m3 <- feols(md_wk_std_idx ~ UGDS_WHITE + UGDS_BLACK + UGDS_HISP + UGDS_ASIAN + UGDS_AIAN + UGDS_NHPI + UGDS_2MOR + UGDS_NRA + UGDS_UNKN + HBCU + PBI + ANNHI + TRIBAL + AANAPII + HSI + NANTI + MENONLY + WOMENONLY,data = df)
+etable(m3)
+```
+```{r, echo = FALSE}
+# paste(dQuote(colnames(df)), collapse = ", ")
+
+#removing variables with alot of na to cut down analysis
+df <- df %>% 
+  select(-c("UGDS_WHITE", "UGDS_BLACK", "UGDS_HISP", "UGDS_ASIAN", "UGDS_AIAN", "UGDS_NHPI", "UGDS_2MOR", "UGDS_NRA", "UGDS_UNKN", 
+            "HBCU", "PBI", "ANNHI", "TRIBAL", "AANAPII", "HSI", "NANTI", "MENONLY", "WOMENONLY")) 
+```
+
+#### _Remove High % NULL Columns_
+Next i want to remove any variables that have a high amount of nulls records. While our time series trends data contains many observations for school features contain less than 2k observations. Introducing measures that have a high proportion of NULL records can introduce analytical debts.
+
+My Null removal criteria is rather arbitrary, however im selecting a cut off at 25% null, meaning that im rejecting any variables that have more than 25% of schools failing to report on them. 
+
+```{r, echo=FALSE}
+x <- map(df, ~mean(is.na(.))) 
+y <- data.frame(t(sapply(x,c)))
+ty <- as.data.frame(t(y))
+ty <- ty %>% 
+  filter(V1 >.25)
+y = as.data.frame(t(ty))
+# paste(dQuote(colnames(y)), collapse = ", ")
+
+```
+
+Just for good measure im going to run a very simply linear model to see if there is any variables worth looking into more. 
+From the results (below) i conclude that these variables do not have individual or cumulative explanatory power over our depended variable (search volume).
+
+Most of these variables are related to (SAT, ACT scores & Avg net price for families) which i don't find particularly helpful for this analysis either. 
+
+There for I am removing them from the analysis.
+```{r}
+
+# temp df to convert Na to 0
+df_m <- df %>%
+  mutate_at(c(8:66), ~replace_na(.,0))
+
+m2 <- feols(md_wk_std_idx ~ RELAFFIL + SATVR25 + SATVR75 + SATMT25 + SATMT75 + SATWR25 + SATWR75 + SATVRMID + SATMTMID + SATWRMID + ACTCM25 + ACTCM75 + ACTEN25 + ACTEN75 + ACTMT25 + ACTMT75 + ACTWR25 + ACTWR75 + ACTCMMID + ACTENMID + ACTMTMID + ACTWRMID + SAT_AVG + NPT4_PUB.AVERAGE.ANNUAL.COST + NPT4_PRIV + NPT41_PUB + NPT42_PUB + NPT43_PUB + NPT44_PUB + NPT45_PUB + NPT41_PRIV + NPT42_PRIV + NPT43_PRIV + NPT44_PRIV + NPT45_PRIV + RET_FTL4 + RET_PT4 + RET_PTL4 + C200_L4_POOLED_SUPP ,data = df_m)
+etable(m2)
+```
 ```{r, echo = FALSE}
 #removing variables with alot of na to cut down analysis
 df <- df %>% 
-  select(-c("RELAFFIL",
-            "SATVR25",
-            "SATVR75",
-            "SATMT25",
-            "SATMT75",
-            "SATWR25",
-            "SATWR75",
-            "SATVRMID",
-            "SATMTMID",
-            "SATWRMID",
-            "ACTCM25",
-            "ACTCM75",
-            "ACTEN25",
-            "ACTEN75",
-            "ACTMT25",
-            "ACTMT75",
-            "ACTWR25",
-            "ACTWR75",
-            "ACTCMMID",
-            "ACTENMID",
-            "ACTMTMID",
-            "ACTWRMID",
-            "SAT_AVG",
-            "SAT_AVG_ALL",
-            "NPT4_PUB.AVERAGE.ANNUAL.COST",
-            "NPT4_PRIV",
-            "NPT41_PUB",
-            "NPT42_PUB",
-            "NPT43_PUB",
-            "NPT44_PUB",
-            "NPT45_PUB",
-            "NPT41_PRIV",
-            "NPT42_PRIV",
-            "NPT43_PRIV",
-            "NPT44_PRIV",
-            "NPT45_PRIV",
-            "RET_FTL4",
-            "RET_PT4",
-            "RET_PTL4",
-            "C200_L4_POOLED_SUPP")) 
+  select(-c("RELAFFIL", "SATVR25", "SATVR75", "SATMT25", "SATMT75", "SATWR25", "SATWR75", "SATVRMID", "SATMTMID", "SATWRMID", "ACTCM25", "ACTCM75", "ACTEN25", "ACTEN75", "ACTMT25", "ACTMT75", "ACTWR25", "ACTWR75", "ACTCMMID", "ACTENMID", "ACTMTMID", "ACTWRMID", "SAT_AVG", "NPT4_PUB.AVERAGE.ANNUAL.COST", "NPT4_PRIV", "NPT41_PUB", "NPT42_PUB", "NPT43_PUB", "NPT44_PUB", "NPT45_PUB", "NPT41_PRIV", "NPT42_PRIV", "NPT43_PRIV", "NPT44_PRIV", "NPT45_PRIV", "RET_FTL4", "RET_PT4", "RET_PTL4", "C200_L4_POOLED_SUPP")) 
 
 ```
 
-```{r, echo=FALSE}
-var_df <- df %>% 
-  top_n(10)
 
-# write.csv(var_df, "C:\\Users\\andre\\OneDrive\\R_Projects\\Economtrics-5300\\Generated_data\\df.csv", row.names=FALSE)
-```
-# TODO:
-- reset the descriptive prints with correct index discribe() func
-
-#### _Variables of interest_
-
-- variables identified to be related to our reaserch question. 
-
+#### _Variables of Interest_
+After bulk variable removal we are left with the following variables for analysis, this s now a much more tailored data set. 
 
 |Variable|Description|
 |:----|:----|
@@ -165,64 +176,7 @@ var_df <- df %>%
 |PREDDEG|Predominant degree|
 |CONTROL|Control of institution|
 |LOCALE|Locale of institution|
-|HBCU|Flag for Historically Black College and University|
-|PBI|Flag for predominantly black institution|
-|ANNHI|Flag for Alaska Native Native Hawaiian serving institution|
-|TRIBAL|Flag for tribal college and university|
-|AANAPII|Flag for Asian American Native American Pacific Islander-serving institution|
-|HSI|Flag for Hispanic-serving institution|
-|NANTI|Flag for Native American non-tribal institution|
-|MENONLY|Flag for men-only college|
-|WOMENONLY|Flag for women-only college|
-|PCIP01|Percentage of degrees awarded in Agriculture, Agriculture Operations, And Related Sciences.|
-|PCIP03|Percentage of degrees awarded in Natural Resources And Conservation.|
-|PCIP04|Percentage of degrees awarded in Architecture And Related Services.|
-|PCIP05|Percentage of degrees awarded in Area, Ethnic, Cultural, Gender, And Group Studies.|
-|PCIP09|Percentage of degrees awarded in Communication, Journalism, And Related Programs.|
-|PCIP10|Percentage of degrees awarded in Communications Technologies/Technicians And Support Services.|
-|PCIP11|Percentage of degrees awarded in Computer And Information Sciences And Support Services.|
-|PCIP12|Percentage of degrees awarded in Personal And Culinary Services.|
-|PCIP13|Percentage of degrees awarded in Education.|
-|PCIP14|Percentage of degrees awarded in Engineering.|
-|PCIP15|Percentage of degrees awarded in Engineering Technologies And Engineering-Related Fields.|
-|PCIP16|Percentage of degrees awarded in Foreign Languages, Literatures, And Linguistics.|
-|PCIP19|Percentage of degrees awarded in Family And Consumer Sciences/Human Sciences.|
-|PCIP22|Percentage of degrees awarded in Legal Professions And Studies.|
-|PCIP23|Percentage of degrees awarded in English Language And Literature/Letters.|
-|PCIP24|Percentage of degrees awarded in Liberal Arts And Sciences, General Studies And Humanities.|
-|PCIP25|Percentage of degrees awarded in Library Science.|
-|PCIP26|Percentage of degrees awarded in Biological And Biomedical Sciences.|
-|PCIP27|Percentage of degrees awarded in Mathematics And Statistics.|
-|PCIP29|Percentage of degrees awarded in Military Technologies And Applied Sciences.|
-|PCIP30|Percentage of degrees awarded in Multi/Interdisciplinary Studies.|
-|PCIP31|Percentage of degrees awarded in Parks, Recreation, Leisure, And Fitness Studies.|
-|PCIP38|Percentage of degrees awarded in Philosophy And Religious Studies.|
-|PCIP39|Percentage of degrees awarded in Theology And Religious Vocations.|
-|PCIP40|Percentage of degrees awarded in Physical Sciences.|
-|PCIP41|Percentage of degrees awarded in Science Technologies/Technicians.|
-|PCIP42|Percentage of degrees awarded in Psychology.|
-|PCIP43|Percentage of degrees awarded in Homeland Security, Law Enforcement, Firefighting And Related Protective Services.|
-|PCIP44|Percentage of degrees awarded in Public Administration And Social Service Professions.|
-|PCIP45|Percentage of degrees awarded in Social Sciences.|
-|PCIP46|Percentage of degrees awarded in Construction Trades.|
-|PCIP47|Percentage of degrees awarded in Mechanic And Repair Technologies/Technicians.|
-|PCIP48|Percentage of degrees awarded in Precision Production.|
-|PCIP49|Percentage of degrees awarded in Transportation And Materials Moving.|
-|PCIP50|Percentage of degrees awarded in Visual And Performing Arts.|
-|PCIP51|Percentage of degrees awarded in Health Professions And Related Programs.|
-|PCIP52|Percentage of degrees awarded in Business, Management, Marketing, And Related Support Services.|
-|PCIP54|Percentage of degrees awarded in History.|
 |DISTANCEONLY|Flag for distance-education-only education|
-|UGDS|Enrollment of undergraduate degree-seeking students|
-|UGDS_WHITE|Total share of enrollment of undergraduate degree-seeking students who are white|
-|UGDS_BLACK|Total share of enrollment of undergraduate degree-seeking students who are black|
-|UGDS_HISP|Total share of enrollment of undergraduate degree-seeking students who are Hispanic|
-|UGDS_ASIAN|Total share of enrollment of undergraduate degree-seeking students who are Asian|
-|UGDS_AIAN|Total share of enrollment of undergraduate degree-seeking students who are American Indian/Alaska Native|
-|UGDS_NHPI|Total share of enrollment of undergraduate degree-seeking students who are Native Hawaiian/Pacific Islander|
-|UGDS_2MOR|Total share of enrollment of undergraduate degree-seeking students who are two or more races|
-|UGDS_NRA|Total share of enrollment of undergraduate degree-seeking students who are non-resident aliens|
-|UGDS_UNKN|Total share of enrollment of undergraduate degree-seeking students whose race is unknown|
 |PPTUG_EF|Share of undergraduate, degree-/certificate-seeking students who are part-time|
 |CURROPER|Flag for currently operating institution, 0=closed, 1=operating|
 |PCTPELL|Percentage of undergraduates who receive a Pell Grant|
@@ -237,135 +191,48 @@ var_df <- df %>%
 |gt_25k_p6|Share of students earning over $25,000/year (threshold earnings) 6 years after entry|
 
 
-# Describe Data Set
-Data will be descibed for selected variables on interest
-Lets start by looking at some basic statistics for each data source. 
-```{r}
-di <- describe(df)
-```
-Observations:
-1386 unique university observations
-Total of 733823 records (We have many entried per induvidual) -> Pannel Data
-No N/A values
-```{r}
-# time frame data
-print(di[5])
-```
-Observations:
-No N/A Data
-157 Unique Weeks accounted for in the data set
-ranging from 2013-03-31 -> 2016-03-27
-  
+# Feature Creation
 
-```{r}
-# index info
-print(di[6:8])
-```
-Observations:
-No N/A Data
-Mean raw index rating = 48.11
-Index ranging from 1 -> 100
-
-**I'll call out a few additional observations of interest here but i wont be goign as in depth in later annotations. 
-
-Gini's mean difference (Gmd) is a measure of Variability fairly low as there is a set range of indexing.
-Can also tell from the Continuose dendist functions (CDF) numbers that the data is pretty normaly distributed and that 50% of its observations are under the value of 48 (which makes perfect sense as the mean is also 48)
-
-
-
-```{r}
-# normalized index info
-print(di[11])
-```
-Observations:
-No N/A Data
-Mean standardized rating from ~ -5 -> ~13. 
-This is a normalized index rating, has not direct interpretation. 
-```{r}
-# normalized index info
-print(di[9])
-```
-Observations:
-No N/A Data
-Mean raw index rating = 48.11
-
-**Note that we have lopsided data (only 19% of our records are taken after the score card came out)
-we'll want to adjust our sample to be random and more even distribution of true and false records. 
-
-#TODO
-- see if you can make this happen but dont try to  hard.
-dont mess with SMOTE becase it could mess up r and you dont have time
-
-#### _selecting random sample_
-
-```{r}
-# Before
-# table(google_trends_master$after_score_card)
-# under_sample <- SMOTE(after_score_card ~ ., google_trends_master, perc.over = 600,perc.under=100)
-# table(under_sample$after_score_card)
-
-```
-
-
-
-
-
-
-
-
-
-
-
-# Feature creation
-
-#### _Identify "high-earning" and "low-earning" Earning Schools_
-Our research questions states “high-earning” vs “low-earning” colleges earning, so how can we define “high” vs “low”? Lets first look at the distribution of earnings among colleges.
-```{r}
-# Histogram overlaid with kernel density curve
-ggplot(df, aes(x=md_reported_ern_10yr)) +
-    geom_histogram(aes(y=..density..),      # Histogram with density instead of count on y-axis
-                   binwidth= 10,
-                   colour="black", fill="white") +
-    geom_density(alpha=.2, fill="#FF6666", stat="count")  # Overlay with transparent density plot
-```
+#### _Create Feature - log of earnings_
+Our research questions states that we want to look at the difference between “high-earning” vs “low-earning” colleges, so how can we define “high” vs “low”? Lets first look at the distribution of earnings among colleges.
 
 This graph represents the density of "median earnings of graduates ten years after graduation for each college".
 Density in this case is the `count` of colleges that fall in that earning spectrum.
 
-This plot has a lot of noise in it though so lets smooth it out and look at densisty. 
+***
+Note a high concentration at ~ 55K threshold. 
+Data is self reported and theorize that 55K is often whats input for any salary range between 50K - 60K. 
+
+We can see that this data is skewed to the right, indicating that while most schools "median earning 10 years after graduation" tends to fall right around $40,000 we have some outline schools who report very high earnings above 150K.
 ```{r}
 ggplot(df, aes(x= md_reported_ern_10yr)) + geom_density()
 
 ```
 
-Now that the data is smoothed we get a better perspective of the distribution of earnings. 
-We can see tho that this data is skewed to the right, indicating that while most schools median earning 10 years after graduation tends to fall right around 40,000 we have select schools who report very high earnings above 150,000. 
-
-to adjust for the skew and normalizes the data a bit we'll take the log of earnings
+To adjust for the skew and normalizes earning data im going to take the log of earnings. 
+From this graph we can see that data more closely represents a normal curve when represented as a log().
+This indicate that if we are to use the earnings in this analysis (Which we are) we should probably explore its representation inits log() form.
 ```{r}
 ggplot(df, aes(x= log(as.numeric(md_reported_ern_10yr)))) + geom_density()
 ```
-Now we can see that we account for the long tails and tthat the data more closely represents a normal curve when represented as a log().
-This indicate that if we are to use the earnings in this analysis (Which we are) we should probably explore its representation inits log() form. 
 
-#### _Create Feature - log of earnings_
-Storing the log value as a column. 
+Because this we be used in analysis im storing the log() value as a column. 
 ```{r,  message=FALSE, warning=FALSE}
 df <- df %>%
   mutate(log_mean_10_yr_earnings = log(md_reported_ern_10yr))
 ```
 
-This also tells us that when setting the "High" vs "Low" Earning schools we will not want to accept the mean as a splitting point as very high or very low earning schools have the ability to skew the mean value
+This also indicates that when setting the "High" vs "Low" Earning buckets for schools we will not want to accept the mean as a splitting point as the data is skewed by select very high earners. 
 
-The first way i would attempt to set the "High" Vs "Low" cut off point is by looking at the data dictionary. 
-Looking at the data dictionary income/ earning levels are consistently categorized as the following:
+To set the "High" Vs "Low" cut off point I initially looking at the data dictionary. 
+Looking at the data dictionary income & earning levels are consistently categorized as the following:
 
 - low-income (less than $30,000)
 - middle-income (between $30,000 and $75,000)
 - high-income (above $75,000)
 
-Since this is the standard according to the data dictionary i dont think it would be wrong to follow suit in our classification.
-SO we'll add this classification as a feature for later use.
+Since this is the standard threshold according to the data dictionary i don't believe it would be wrong to follow suit.
+So ill add this classification as a feature for later use.
 
 #### _Create Feature - low-med-high_
 ```{r, message=FALSE, warning=FALSE}
@@ -375,92 +242,161 @@ df <- df %>%
                              TRUE ~ 'Med'))
 ```
 
-Using this classification of high vs low however cuts out the mean of my sample population though and a majority of my observations so ill want to address this differently.  
+However our research question specifically asks about "high" vs "low" earners, and if I was to use this classification of "high" vs "low" i would have to discard the medium which would by design cuts out the mean of my sample population and ~ 90% of my observations. (see below)
 
-For this ill be splitting it on the `median` for the entire sample. Selecting not to use mean here as earnings as we saw graphically (above) are highly skewed, median however will help us get a less skewed center. 
+```{r}
+freq(df$low_med_high_ern, report.nas = FALSE, cumul = FALSE)
+```
+
+To account for this issue I've opted to split "high" vs "low" by `median` for the entire sample. Median is a better mark for centrality that mean given skewed data.  
 
 #### _Create Feature - low-high_
 ```{r}
 # median earnings
 median_val = median(df$md_reported_ern_10yr)
 df <- df %>%
-  mutate(low_high_ern = case_when(md_reported_ern_10yr <= median_val ~ 'Low',
-                             TRUE ~ 'High'))
+  mutate(low_ern_school = case_when(md_reported_ern_10yr <= median_val ~ TRUE,
+                             TRUE ~ FALSE))
 
 ```
 
-#TODO:
-- add month feature
-- change week over week as a feature
+# Describe Data Set
+Lets start by looking at some of the new feature variables.
 
+
+#### _after_score_card_
 ```{r}
-# then add features, interactions, strip month, look for difference or change in metrics each week 
-# This section we'll identify high earning school/ how and why, etc.  
-# TODO: use ymd() on date. see https://nickch-k.github.io/EconometricsSlides/Week_06/Week_06_Bonus_Project_Data_Cleaning.html#6
+freq(df$after_score_card, report.nas = FALSE, cumul = FALSE)
 ```
+Shows the proportion of records that fall into each bucket.
+Note our sample is lopsided (~80% of the records are before the score card)
 
-
-
-
-
-
-
+Next lets looks at our numerical data:
+```{r}
+descr(df,
+  headings = FALSE, # remove headings
+  stats = "common", # most common descriptive statistics
+  transpose = TRUE
+)
+```
+To draw attention to a few interesting metrics:
+- Most of our data is populated without NA's records
+- media earning range form 16K to 166K with a mean at ~ 50
+- we have a university where 98% of its students recieve Pell Grant 
 
 # EDA
 
-TODO: DO the below by month too
+#### _Element of Time_
+Time is a variable that could both be related to when the report was release as well as how the index changes across time. 
+This means that anything that changes over time is a potential source of endogeneity, even if it isn't inherently related to the Scorecard. 
+
+In the graph below:
+The normalized Google search ratings tend be highly correlated between schools that and "low" as "high" earners. 
+Note we do not have continuous data there are gaps in time not accounted for. (Would ideally like to interpolate the values)
 ```{r, warning =FALSE}
 agg <-  df %>% 
-  group_by(low_high_ern, start_of_week) %>% 
+  group_by(low_ern_school, start_of_week) %>% 
   summarise(md_wk_std_idx=mean(md_wk_std_idx)) %>% 
   arrange(., start_of_week)
 
-ggplot(data = agg, mapping = aes(x=start_of_week, y=md_wk_std_idx, color= low_high_ern, group=low_high_ern))+
+ggplot(data = agg, mapping = aes(x=start_of_week, y=md_wk_std_idx, color= low_ern_school, group=low_ern_school))+
   geom_path()+
   geom_point()+
   scale_y_continuous(limits = c(0,1), breaks = seq(0,1,5), expand = c(0,0))+
-  scale_x_date(date_breaks = '6 month', date_labels = '%b %d %Y')+
-  labs(x = NULL, y = 'Avg Normalized Index By Week', color = 'Hi or Low Earning')+
+  scale_x_date(date_breaks = '6 month', date_labels = '%b %y')+
+  labs(x = NULL, y = 'Avg Normalized Index By Week', color = 'Low Earning')+
   theme_bw()
 ```
-When looking at the search index ratings schools look to be highly correlated.
-Note we do not have continuous data there are gaps in time not accounted for. (WOuld idealy like to inerpolate the values) 
+
+
+Looking at this at a more aggregated level by month (Below) we see trends follow suit, however in sept 15 we see viduallysee  more distance between index's. 
+```{r, warning =FALSE}
+agg <-  df %>% 
+  group_by(low_ern_school, start_of_month) %>% 
+  summarise(md_wk_std_idx=mean(md_wk_std_idx)) %>% 
+  arrange(., start_of_month)
+
+ggplot(data = agg, mapping = aes(x=start_of_month, y=md_wk_std_idx, color= low_ern_school, group=low_ern_school))+
+  geom_path()+
+  geom_point()+
+  scale_y_continuous(limits = c(0,1), breaks = seq(0,1,5), expand = c(0,0))+
+  scale_x_date(date_breaks = '3 month', date_labels = '%b %y')+
+  labs(x = NULL, y = 'Avg Normalized Index By Month', color = 'Hi or Low Earning')+
+  theme_bw()
+```
+
+If we plot the data graphically to look at the relationship between index and "log_mean_10_yr_earnings" color coded by "after_score_card" we get something that doesn't depict a clear relationship. 
+
+However we do notice that the variation in Google trends index does increases after the score card was released. 
 
 ```{r}
 agg <-  df %>% 
-  group_by(schname, after_score_card, low_high_ern) %>% 
+  group_by(schname, after_score_card, low_ern_school) %>% 
   summarise(md_wk_std_idx=mean(md_wk_std_idx), 
-            log_mean_10_yr_earnings = mean(log_mean_10_yr_earnings),
-            PCIP04 = mean(PCIP04))
+            log_mean_10_yr_earnings = mean(log_mean_10_yr_earnings))
 
 ggplot(data=agg, aes(y = md_wk_std_idx, x = log_mean_10_yr_earnings))+
-  geom_point(aes(color = factor(after_score_card)))+
+  geom_point(shape = 1, size=1, alpha = 0.6, aes(color = factor(after_score_card)))+
   labs(y = 'Index', x = 'Median 10 Yr Earnings', color = 'after_score_card')
 
 ```
 
-```{r}
-agg <-  df %>% 
-  group_by(schname, after_score_card, low_high_ern) %>% 
-  summarise(md_wk_std_idx=mean(md_wk_std_idx), 
-            log_mean_10_yr_earnings = mean(log_mean_10_yr_earnings),
-            PCIP04 = mean(PCIP04))
-
-ggplot(data=agg, aes(y = md_wk_std_idx, x = log_mean_10_yr_earnings))+
-  geom_point(aes(color = factor(low_high_ern)))+
-  labs(y = 'Index', x = 'Median 10 Yr Earnings', color = 'low_high_ern')
-
-```
-
-
-#### _dagity.net for possible factors_
-
-
 #### _modeling_
-```{r}
-# start modeling (use what you have learned in class)
-# plots and scatter plots
+Q: Did the release of the Scorecard shift student interest to high-earnings colleges relative to low-earnings ones
+target variable is interest.  
+
+looking at there results set below we get a few variables that are statistically significant.
+
+- after_score_cardTRUE (After the Score card, binary variable)
+- log_mean_10_yr_earnings x after_score_cardTRUE (log_mean_10_yr_earnings w/ interaction on after_score_cardTRUE)
+- after_score_cardFALSE x low_ern_schoolFALSE (When before score card and High earning)
+- after_score_cardTRUE x low_ern_schoolFALS (When after score card and High earning)
+- after_score_cardFALSE x low_ern_schoolTRUE (When before score card and low earing)
+
+All of these variables are statistically significant at the `0.1%`level suggesting that we can reject the null H0. 
+Whats interesting about these variables though the direction of the coefficients. 
+
+The direction school the coefficients grouped by `low_ern_shool` is positive for that of the low earning schools and negative for the high earning schools which is opposite of my thinking. 
+
+
+
+```{r, warning=FALSE, message=FALSE}
+# Regress models set 1 interactive terms no control for time
+m1 <- feols(md_wk_std_idx ~ log_mean_10_yr_earnings:after_score_card +log_mean_10_yr_earnings + after_score_card + low_ern_school, data = df)
+m2 <- feols(md_wk_std_idx ~ after_score_card + low_ern_school, data = df)
+m3 <- feols(md_wk_std_idx ~ after_score_card:low_ern_school, data = df)
+m4 <- feols(md_wk_std_idx ~ log_mean_10_yr_earnings + after_score_card + low_ern_school, data = df)
+
+etable(m1, m2, m3, m4, digits = 3)
 ```
+
+Looking more closely log_mean_10_yr_earnings with the wald() test we fail to reject the null hypothesis that "log_mean_10_yr_earnings" cumulative impact is 0 as the p value = .15. 
+
+This indicates that the factor is not important when explaining the variation in md_wk_std_idx.
+This factor can be removed for additional models.
+
+```{r}
+wald(m4, c('log_mean_10_yr_earnings'))
+```
+Our basic linear model however doe not account for the time element though which is highly important to this analysis as its a time based. With the model below I explore the effect of the control on the model as well as some other variables of interest. 
+
+With the results below i can confirm that that week is a statistically significant variable for the model and increases our r2 statistic instigating that the new model explains more of the variation in Google trends results.
+
+The new variables added to `m4` are not statistically significant and don't add much predictive power to our model. 
+
+```{r}
+# Regress models set 2 control for time and explorring other vars
+m1 <- feols(md_wk_std_idx ~ after_score_card + low_ern_school + start_of_week, data = df)
+# Adding back interaction term
+m2 <- feols(md_wk_std_idx ~ after_score_card + low_ern_school + after_score_card:low_ern_school + start_of_week, data = df)
+# adding other elements
+m3 <- feols(md_wk_std_idx ~ after_score_card + low_ern_school + after_score_card:low_ern_school + start_of_week + PCTFLOAN + DISTANCEONLY + CURROPER + PCTPELL + RET_FT4 + as.numeric(GRAD_DEBT_MDN_SUPP) + md_reported_ern_10yr , data = df)
+etable(m1, m2, m3, digits = 3)
+```
+
+
+
+
 
 
 ```{r}
@@ -470,7 +406,7 @@ ggplot(data=agg, aes(y = md_wk_std_idx, x = log_mean_10_yr_earnings))+
 # 
 # 
 # df_trim <- df %>% 
-#   select(md_wk_std_idx, log_mean_10_yr_earnings,md_reported_ern_10yr, LOCALE, MENONLY,WOMENONLY,UGDS, low_med_high_ern, low_high_ern )
+#   select(md_wk_std_idx, log_mean_10_yr_earnings,md_reported_ern_10yr, LOCALE, MENONLY,WOMENONLY,UGDS, low_med_high_ern, low_ern_school )
 # 
 # # Backward feature elimination
 # fitall <- lm( md_wk_std_idx ~ .-opeid-unitid, data = df_trim)

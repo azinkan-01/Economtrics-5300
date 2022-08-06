@@ -179,23 +179,6 @@ library(vtable)
 library(fixest)
 library(tidyr)
 library(lubridate)</code></pre>
-<div id="restated-question" class="section level3">
-<h3>Restated Question:</h3>
-<p>The College Scorecard was released at the start of September 2015. Among colleges that predominantly grant bachelor’s degrees, did the release of the Scorecard shift student interest to high-earnings colleges relative to low-earnings ones (as proxied by Google searches for keywords associated with those colleges)?</p>
-<p>REQ:</p>
-<ul>
-<li>You will need to produce at least one regression and one graph for your analysis, and explain them.</li>
-</ul>
-<div id="recommended-data-cleaning" class="section level4">
-<h4>Recommended Data Cleaning</h4>
-<ul>
-<li>What level should the data be at? You can leave the data as is, with one row per week per keyword. Or group_by and summarize to put things to one week per college, or one month per college, or one month per keyword, etc. etc.
-<ul>
-<li>lets group by college, keyword and week. we need to keep college to tie back what colleges and associated measues imapct searches, we’ll group by week as the index is recorded is weekly intervals (keep more data granularity), and we’ll do it by keyword as we dont have way to really add or average index across keys as they are not dirrectly comparable.</li>
-</ul></li>
-</ul>
-</div>
-</div>
 <div id="data-transformation-for-score-card-data" class="section level2">
 <h2>Data Transformation for Score Card Data</h2>
 <div id="drop-opeids-that-are-not-unique-observations" class="section level4">
@@ -232,7 +215,7 @@ ScoreCardDataStage &lt;- filter(ScoreCardDataStage, OPEID %in% NotSuppressed_fil
 <p>7738 records -&gt; 5584 records 2154 records removed</p>
 </div>
 <div id="drop-null-values-in-earnings-data" class="section level4">
-<h4><em>Drop Null values in earnings data</em></h4>
+<h4><em>Drop NULL values in earnings data</em></h4>
 <p>Want to drop null values for the same reason we want to drop the suppressed data</p>
 <pre class="r"><code>NotNull &lt;- ScoreCardDataStage %&gt;% 
   select(OPEID, md_earn_wne_p10.REPORTED.EARNINGS) %&gt;% 
@@ -245,8 +228,8 @@ NotNull_Filter &lt;- NotNull$OPEID
 ScoreCardDataStage &lt;- filter(ScoreCardDataStage, OPEID %in% NotNull_Filter)</code></pre>
 <p>5584 records -&gt; 5584 records</p>
 </div>
-<div id="data-cleaning" class="section level4">
-<h4><em>Data Cleaning</em></h4>
+<div id="renaming" class="section level4">
+<h4><em>Renaming</em></h4>
 <pre class="r"><code>ScoreCardDataStage &lt;- ScoreCardDataStage %&gt;% 
   mutate(md_earn_wne_p10.REPORTED.EARNINGS = as.numeric(ScoreCardDataStage$md_earn_wne_p10.REPORTED.EARNINGS))
 
@@ -276,7 +259,7 @@ IDNameLinkStage &lt;- filter(IDNameLinkRaw, opeid %in% school_filter)</code></pr
 <p>Starting with 3595 Schools Our first filter results in 3557 remaining schools 38 universities removed</p>
 </div>
 <div id="drop-non-unique-universities-names" class="section level4">
-<h4><em>Drop non unique universities names</em></h4>
+<h4><em>Drop non unique Universities Names</em></h4>
 <pre class="r"><code># Identify names that have more than one opeid
 unique_ids &lt;- IDNameLinkRaw %&gt;% 
   select(opeid, schname) %&gt;% 
@@ -344,7 +327,6 @@ IDNameLinkStage &lt;- filter(IDNameLinkStage, opeid %in% NotNull_Filter)</code><
 <div id="todo" class="section level1">
 <h1>TODO:</h1>
 <ul>
-<li>Double check the index changes</li>
 <li>use month() from lubridate to pull the month out of your date variable</li>
 </ul>
 <div id="union-all-trend-data" class="section level4">
@@ -364,27 +346,13 @@ Trends &lt;- Trends %&gt;%
   distinct()</code></pre>
 <p>This does in fact remove many duplicate records (30894)</p>
 </div>
-<div id="fix-dates" class="section level4">
-<h4><em>Fix Dates</em></h4>
+<div id="strip-dates" class="section level4">
+<h4><em>Strip Dates</em></h4>
 <p>Score card was added beginning of sept 2015</p>
 <pre class="r"><code># separate dates
 Trends &lt;- separate(Trends, col=monthorweek, into=c(&#39;start_of_week&#39;, &#39;end_of_week&#39;), sep=&#39; - &#39;)
-head(Trends)</code></pre>
-<pre><code>##                        schname                      keyword keynum
-## 1 california college san diego california college san diego      1
-## 2 california college san diego california college san diego      1
-## 3 california college san diego california college san diego      1
-## 4 california college san diego california college san diego      1
-## 5 california college san diego california college san diego      1
-## 6 california college san diego california college san diego      1
-##   start_of_week end_of_week index
-## 1    2013-03-31  2013-04-06    86
-## 2    2013-04-07  2013-04-13    69
-## 3    2013-04-14  2013-04-20    72
-## 4    2013-04-21  2013-04-27    78
-## 5    2013-04-28  2013-05-04    78
-## 6    2013-05-05  2013-05-11    80</code></pre>
-<pre class="r"><code># Convert to date type
+
+# Convert to date type
 Trends &lt;- Trends %&gt;% 
   mutate(start_of_week = as.Date(start_of_week, format=&quot;%Y-%m-%d&quot;)) %&gt;% 
   mutate(end_of_week = as.Date(end_of_week, format=&quot;%Y-%m-%d&quot;))
@@ -414,14 +382,20 @@ Trends &lt;- Trends %&gt;%
   mutate(standard_idx = (index-mean_index)/std_index) %&gt;% 
   select(schname, keyword, start_of_week,  standard_idx, after_score_card)</code></pre>
 </div>
+<div id="add-date-info" class="section level4">
+<h4><em>Add Date info</em></h4>
+<pre class="r"><code># add month
+Trends &lt;- Trends %&gt;% 
+  mutate(start_of_month = format(as.Date(start_of_week), &quot;%Y-%m&quot;))</code></pre>
+</div>
 <div id="aggregate-the-trends-data" class="section level4">
 <h4><em>Aggregate the Trends Data</em></h4>
-<p>grouping by shool-week Why?</p>
+<p>grouping by shool-week Why?: we need to keep college to tie back what colleges and associated measues imapct searches, we’ll group by week as the index is recorded is weekly intervals (keep more data granularity)</p>
 <pre class="r"><code>Trends &lt;- Trends %&gt;% 
-  group_by(schname, start_of_week, after_score_card) %&gt;%
+  group_by(schname, after_score_card, start_of_week, start_of_month) %&gt;%
   summarise(md_wk_std_idx = median(standard_idx)) %&gt;%
   arrange(., start_of_week )</code></pre>
-<pre><code>## `summarise()` has grouped output by &#39;schname&#39;, &#39;start_of_week&#39;. You can override using the `.groups` argument.</code></pre>
+<pre><code>## `summarise()` has grouped output by &#39;schname&#39;, &#39;after_score_card&#39;, &#39;start_of_week&#39;. You can override using the `.groups` argument.</code></pre>
 </div>
 <div id="master-data" class="section level2">
 <h2>Master Data</h2>

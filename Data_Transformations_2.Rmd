@@ -107,7 +107,11 @@ ScoreCardDataStage <- ScoreCardDataStage %>%
          md_reported_ern_10yr = md_earn_wne_p10.REPORTED.EARNINGS)
 
 ```
+#TODO:
+filter for only operational universities
+CURROPER 0=closed, 1=operating
 
+non operational in not a standard when we think of our reaserch question. we dotn ever care about bacheler programs that no longer operate. these tpes of shoools represent them selvs as there own class in my opinion. 
 
 
 ## Data Transformation For School Link Data
@@ -206,9 +210,6 @@ This filter results in 1804 records, removing an additional 0 universities.
 
 ## Data Transformation Trend data
 
-# TODO: 
-
-- use month() from lubridate to pull the month out of your date variable
 
 #### _Union All Trend Data_
 union all the Trends Data as one dataframe
@@ -229,7 +230,7 @@ Trends <- Trends %>%
 ```
 This does in fact remove many duplicate records (30894)
 
-#### _Fix Dates_
+#### _Strip Dates_
 Score card was added beginning of sept 2015
 ```{r, message=FALSE, warning=FALSE}
 # separate dates
@@ -271,20 +272,20 @@ Trends <- Trends %>%
 
 ```
 
-#### _Add Date info_
+#### _Add Month info_
 ```{r}
 # add month
 Trends <- Trends %>% 
-  mutate(start_of_month = format(as.Date(start_of_week), "%Y-%m"))
+  mutate(start_of_month = format(as.Date(start_of_week), "%Y-%m-1"))
 ```
 
 #### _Aggregate the Trends Data_
-grouping by shool-week 
+grouping by school-week 
 Why?:
 we need to keep college to tie back what colleges and associated measues imapct searches, we'll group by week as the index is recorded is weekly intervals (keep more data granularity)
 ```{r}
 Trends <- Trends %>% 
-  group_by(schname, start_of_week, after_score_card) %>%
+  group_by(schname, after_score_card, start_of_week, start_of_month) %>%
   summarise(md_wk_std_idx = median(standard_idx)) %>%
   arrange(., start_of_week )
 ```
