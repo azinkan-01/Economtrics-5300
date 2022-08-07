@@ -9,7 +9,7 @@ output: html_document
 knitr::opts_chunk$set(echo = TRUE)
 ```
 
-```{r, results= "hide", message=FALSE, warning=FALSE}
+```{r,  results= "hide", message=FALSE, warning=FALSE}
 # Load initial packages
 library(tidyverse)
 library(ggplot2)
@@ -17,22 +17,13 @@ library(dplyr)
 library(vtable)
 library(fixest)
 library(tidyr)
+library(lubridate)
 ```
+## Data Transformation for Score Card Data
+$Note:$This file needs to be run before the EDA_3.Rmd can executed. 
 
-###  Restated Question:
-
-The College Scorecard was released at the start of September 2015. Among colleges that predominantly grant bachelor’s degrees, did the release of the Scorecard shift student interest to high-earnings colleges relative to low-earnings ones (as proxied by Google searches for keywords associated with those colleges)?
-
-REQ:
-
-- You will need to produce at least one regression and one graph for your analysis, and explain them.
-
-#### Recommended Data Cleaning
- - What level should the data be at? You can leave the data as is, with one row per week per keyword. Or group_by and summarize to put things to one week per college, or one month per college, or one month per keyword, etc. etc.
-    - lets group by college, keyword and week. we need to keep college to tie back what colleges and associated measues imapct searches, we'll group by week as the index is recorded is weekly intervals (keep more data granularity), and we'll do it by keyword as we dont have way to really add or average index across keys as they are not dirrectly comparable. 
-
-
-```{r, echo = FALSE, results= "hide", message=FALSE, warning=FALSE}
+#### _Loading the initial data_
+```{r, results= "hide", message=FALSE, warning=FALSE}
 # Running the raw data
 # Striping the Nulls to NA Values
 DataDictRaw <-  read.csv("Data_Exploration/CollegeScorecardDataDictionary.csv", na.strings = c("","NA","NULL",NULL))
@@ -51,10 +42,10 @@ TrendsUpToUtRaw <- read.csv("Data_Exploration/trends_up_to_UT.csv", na.strings =
 TrendsUpToUtmbRaw <- read.csv("Data_Exploration/trends_up_to_UTMB.csv", na.strings = c("","NA","NULL",NULL))
 TrendsUpToYorktowneRaw <- read.csv("Data_Exploration/trends_up_to_Yorktowne.csv", na.strings = c("","NA","NULL",NULL))
 ```
-## Data Transformation for Score Card Data
 
 #### _Drop opeid's that are not unique observations_
-This is in an effort to remove any `many to one` relationships when joining OPEID
+
+I'm doing this to avoid any `many to one` relationships when joining **OPEID**
 ```{r}
 Unique_opeid <- ScoreCardDataRaw %>% 
   select(OPEID) %>% 
@@ -71,12 +62,13 @@ Unique_opeid_filter <- Unique_opeid$OPEID
 ScoreCardDataStage <- filter(ScoreCardDataRaw, OPEID %in% Unique_opeid_filter)
 
 ```
-7804 records -> 7738 records
 
 
 #### _Remove "PrivacySuppressed" earnings data_
-This data is directly related to college earnings (our dependent variable), thus we will want to use only known values to regress on. 
-Null values in this field don't shed any light on how different independent variables impact an unknown depended variable. 
+
+Some records provided in this data set have earnings data either NA or marked as "PrivacySuppressed". Because this variable is our measurement for college earnings which is a central part of our research question, we need to only work with known values for this. 
+
+Null values in this field don't shed any light on how different earnings impact search rate if earning are unknown. 
 ```{r}
 # Remove "PrivacySuppressed" data 
 NotSuppressed <- ScoreCardDataStage %>% 
@@ -89,11 +81,9 @@ NotSuppressed_filter <- NotSuppressed$OPEID
 # Remove Suppressed Earnings Data
 ScoreCardDataStage <- filter(ScoreCardDataStage, OPEID %in% NotSuppressed_filter)
 ```
-7738 records -> 5584 records
-2154 records removed
 
-#### _Drop Null values in earnings data_
-Want to drop null values for the same reason we want to drop the suppressed data 
+#### _Drop NULL values in earnings data_
+I want to drop null values for the same reason we want to drop the suppressed data. Null value here don't provide any use to this research question.  
 
 ```{r}
 NotNull <- ScoreCardDataStage %>% 
@@ -106,9 +96,10 @@ NotNull_Filter <- NotNull$OPEID
 # Remove Suppressed Earnings Data
 ScoreCardDataStage <- filter(ScoreCardDataStage, OPEID %in% NotNull_Filter)
 ```
-5584 records -> 5584 records
 
-#### _Data Cleaning_
+#### _Renaming_
+
+Doing a minimal amount of renaming and mutations here but it makes these variables esier to work with later on. 
 ```{r}
 ScoreCardDataStage <- ScoreCardDataStage %>% 
   mutate(md_earn_wne_p10.REPORTED.EARNINGS = as.numeric(ScoreCardDataStage$md_earn_wne_p10.REPORTED.EARNINGS))
@@ -120,16 +111,13 @@ ScoreCardDataStage <- ScoreCardDataStage %>%
 
 ```
 
-
-
 ## Data Transformation For School Link Data
 
 #### _Drop non unique opeid's_
-Identify opeid's with more than one unique school name
-many to 1 relationship with opeid (want to cut that out)
+Here I'm identify opeid's with more than one unique school name associated as we dont want to have a `many to one` relationship with opeid when we make a mastered data set. We don't want a `many to one` or `many to many` as this can cause records duplication. 
 
 ```{r}
-Unique_Shools <- IDNameLinkRaw %>% 
+Unique_schools <- IDNameLinkRaw %>% 
   select(opeid, schname) %>% 
   group_by(opeid) %>% 
   summarise(count_unique = n_distinct(schname))%>% 
@@ -137,16 +125,15 @@ Unique_Shools <- IDNameLinkRaw %>%
   filter(count_unique == 1)
 
 # create filter for unique ids
-shool_filter <- Unique_Shools$opeid
+school_filter <- Unique_schools$opeid
 
 # filter raw set by the opeids that have unique names
-IDNameLinkStage <- filter(IDNameLinkRaw, opeid %in% shool_filter)
+IDNameLinkStage <- filter(IDNameLinkRaw, opeid %in% school_filter)
 ```
-Starting with 3595 Schools
-Our first filter results in 3557 remaining schools
-38 universities removed
 
-#### _Drop non unique universities names_
+#### _Drop non unique Universities Names_
+Here I'm finding all the school names that are tied to more than one **opeid**. This is another instance where a `many to many` or `many to one` could cause duplication issues down stream. 
+
 ```{r}
 # Identify names that have more than one opeid
 unique_ids <- IDNameLinkRaw %>% 
@@ -157,17 +144,19 @@ unique_ids <- IDNameLinkRaw %>%
   filter(count_unique < 2)
 
 # create filter for unique ids
-shool_filter <- unique_ids$schname
+school_filter <- unique_ids$schname
 
 # apply another filter to staged set by filtering the opeids that have unique names
-IDNameLinkStage <- filter(IDNameLinkStage, schname %in% shool_filter)
+IDNameLinkStage <- filter(IDNameLinkStage, schname %in% school_filter)
 ```
-This filter results in 3486 records, removing an additional 71 universities. 
-
 
 #### _Filter bachelor degree colleges_
-Selecting Bachelors Primary Schools & Bachelors Only Schools
-Bachelors Only Schools are by default Bachelors Primary
+Selecting Bachelors Primary Schools & Bachelors Only Schools.
+Here I'm using **PREDDEG >= 3** as schools that offer *primarily* bachelors degrees would consist of both primary degree categories 3 and 4. 
+
+- category 3 -> primarily offer bachelors degrees
+- category 4 -> exclusively over bachelor degrees
+
 ```{r}
 # Selecting Bachelors Primary Schools & Bachelors Only Schools
 # Bachelors Only Schools are by default Bachelors Primary
@@ -181,11 +170,9 @@ bach_filter <- Bachelors_primary$opeid
 # Remove non bachelors from our master id list
 IDNameLinkStage <- filter(IDNameLinkStage, opeid %in% bach_filter)
 ```
-This filter results in 1999 records, removing an additional 1487 universities.
 
 #### _Drop "PrivacySuppressed" earnings_
-This data is directly related to college earnings (our dependent variable), thus we will want to use only known values to regress on. 
-Null values in this field dont shed any light on how different independent variables impact an unknown depended variable. 
+Some records provided in this data set have earnings data either NA or marked as "PrivacySuppressed". Because this variable is our measurement for college earnings which is a central part of our research question, we need to only work with known values for this. 
 ```{r}
 # Remove "PrivacySuppressed" data 
 NotSuppressed <- ScoreCardDataStage %>% 
@@ -198,10 +185,9 @@ NotSuppressed_filter <- NotSuppressed$opeid
 # Remove Suppressed Earnings Data
 IDNameLinkStage <- filter(IDNameLinkStage, opeid %in% NotSuppressed_filter)
 ```
-This filter results in 1804 records, removing an additional 195 universities.
 
 #### _Drop Null earnings_
-Want to drop null values for the same reason we want to drop the suppressed data 
+Drop null values for the same reason we want to drop the suppressed data 
 
 ```{r}
 NotNull <- ScoreCardDataStage %>% 
@@ -214,19 +200,21 @@ NotNull_Filter <- NotNull$opeid
 # Remove Suppressed Earnings Data
 IDNameLinkStage <- filter(IDNameLinkStage, opeid %in% NotNull_Filter)
 ```
-This filter results in 1804 records, removing an additional 0 universities.
 
 ## Data Transformation Trend data
 
-#### _Make Indices reasonably comparable_
-union all the Trends Data as one dataframe
+
+#### _Union All Trend Data_
+union all the Trends Data as one data frame to make it easier to work with.
 ```{r, results= "hide", message=FALSE, warning=FALSE}
 # Union the Trends Data
 TrendsAppendedDf <- rbind(TrendsUpToInter_1_Raw, TrendsUpToInter_2_Raw, TrendsUpToInter_3_Raw, TrendsUpToInter_4_Raw, TrendsUpToInter_5_Raw, TrendsUpToInter_6_Raw, TrendsUpToUmRaw, TrendsUpToUphoenixRaw, TrendsUpToUtmbRaw, TrendsUpToUtmbRaw, TrendsUpToYorktowneRaw, TrendsUpToFinishRaw )
 ```
 
 #### _Drop Duplicates_
-because this is API generated trends data that has breaks when to many requests are generateed its very possible we have duplicate results. schid as it provided no meaning.
+Since this is API generated trends data that has breaks when to many requests are generated its very possible that when we resend a new request old records are loaded again, hence creating duplicates.
+
+Regardless if that's the case we don't want to have any duplicate records for this panel data set, and because the *schid* field has no known or understandable meaning im choosing to remove that field then only select distinct values across the full data frame. 
 ```{r}
 # Select remove the schid field (non unique) and no relationship
 Trends <- TrendsAppendedDf %>% 
@@ -235,30 +223,15 @@ Trends <- TrendsAppendedDf %>%
 Trends <- Trends %>% 
   distinct()
 ```
-This does in fact remove many duplicate records (30894)
 
+#### _Strip Dates_
+Dates come in a text columns provided as a range of dates (ex: 2022-01-01 - 2022-01-07).In order to get a date value form this value im stripping the string partitioned by " - " and taking the first value as the start of the week that the trend data occurred. This date is converted to a date.time() value for easier use down stream. 
 
-```{r, message=FALSE, warning=FALSE}
-# Key Level Mean
-key_level_idx <- Trends %>% 
-  select(schname,keyword,index, ) %>% 
-  group_by(schname,keyword) %>% 
-  summarise(mean_index = mean(index), 
-            std_index = sd(index))
+I then added a binary variable to indicate if the trend data pertains to before or after the College Score Card launch date (2015-09-01).
 
-# Join raw and idk level
-Trends <- Trends %>% 
-  inner_join(key_level_idx, by = c("schname", "keyword")) %>% 
-  select(schname, keyword, monthorweek, index, mean_index, std_index) %>%
-  mutate(idx_minus_mean = index-mean_index, standard_idx = idx_minus_mean/std_index)
-
-```
-#### _Fix Dates_
-Score card was added beginning of sept 2015
 ```{r, message=FALSE, warning=FALSE}
 # separate dates
 Trends <- separate(Trends, col=monthorweek, into=c('start_of_week', 'end_of_week'), sep=' - ')
-head(Trends)
 
 # Convert to date type
 Trends <- Trends %>% 
@@ -271,38 +244,87 @@ Trends <- Trends %>%
 
 ```
 
+#### _No Null Dates_
+As this question is related to the function of time we need to deal with the records that are not associated with a time frame.
+It should be noted that these records also lack any index information. Likely this was complied from source incorrectly or reflects API queries where data was not available from the host.
+
+Regardless we need to remove these records as they provide no value to our analysis. 
+
+```{r}
+Trends <- Trends %>% 
+  filter(!is.na(start_of_week))
+```
+
+#### _Make Indices reasonably comparable_
+
+Here we are making the search index's reasonably comparable across terms. 
+To make the indices reasonably comparable we need to standardizing them for each term, by subtracting the mean and divide by the standard deviation. 
+
+```{r, message=FALSE, warning=FALSE}
+# Key Level Mean
+key_level_idx <- Trends %>% 
+  select(schname,keyword,index, ) %>% 
+  group_by(schname,keyword) %>% 
+  summarise(mean_index = mean(index), 
+            std_index = sd(index))
+
+# Join raw and idk level
+Trends <- Trends %>% 
+  inner_join(key_level_idx, by = c("schname", "keyword")) %>% 
+  mutate(standard_idx = (index-mean_index)/std_index) %>% 
+  select(schname, keyword, start_of_week,  standard_idx, after_score_card)
+
+```
+
+#### _Add Month info_
+Transforming the data value to a monthly expression in case i want to do analysis at the level. 
+```{r}
+# add month
+Trends <- Trends %>% 
+  mutate(start_of_month = format(as.Date(start_of_week), "%Y-%m-1"))
+```
+
+#### _Aggregate the Trends Data_
+Here im aggregating the results for Google trends data, selecting to group by school & week. Im selecting this level as i want to resolve the number of key words tracked per school. come schools track 1 work where others track 7. 
+
+In order to farther standardized the data set and make metrics comparable across shool i just just want the average seach per school per week. This allows me to keep college name so that i can tie colleges together and join the associated measures.Im choseing the keep this data at the weekly level as it retains more granularity and more data points for us to workwith in the analysis. 
+
+Data can always be aggregated at a higher level down stream if need be. 
+```{r}
+Trends <- Trends %>% 
+  group_by(schname, after_score_card, start_of_week, start_of_month) %>%
+  summarise(md_wk_std_idx = median(standard_idx)) %>%
+  arrange(., start_of_week )
+```
 ## Master Data
 
 
 #### _School ID & Metrics_
-Using inner join to ensure that we have a complete data set in terms of unitid and opeid that match across or school key and our school data points.
+Using inner join to ensure that we have a matching data set in terms of unitid and opeid. Inner join helps us filter out anything that doesn't match between the two data sets.
 ```{r}
-shool_master <- IDNameLinkStage %>% 
+school_master <- IDNameLinkStage %>% 
   inner_join(ScoreCardDataStage, by = c("opeid", "unitid"))
-```
-
-our final data set for analysis is now comprised of a total of 1798 records by 123 variables. 
-```{r}
-dim(shool_master)
 ```
 
 #### _Google Trends & School ID_
 Using inner join to ensure that we have a only matching school names across our school id info and our google trends info. 
+Joining on the **schname** across data sets. Both of these staged table are already at the unique **schname** level. 
 ```{r}
 google_trends_master <- IDNameLinkStage %>% 
   inner_join(Trends, by = c("schname"))
 ```
 
 
-
 ## CSV Out Put
-Holding out our mutation steps in this code and producing one school data frame and one goolg etrends data set allows for faster and cleaner downstream modeling. 
+Producing an output file as a csv that can be stored as prep file.
+
+By doing this I can simply read in the prep file down stream and not be required to reproduce all data proccessing steps. (saves time and computation while doing analysis) 
 ```{r}
-write.csv(shool_master, "C:\\Users\\andre\\OneDrive\\R_Projects\\Economtrics-5300\\Generated_data\\shool_master.csv", row.names=FALSE)
+write.csv(school_master, "Generated_data\\school_master.csv", row.names=FALSE)
 ```
 
 ```{r}
-write.csv(google_trends_master, "C:\\Users\\andre\\OneDrive\\R_Projects\\Economtrics-5300\\Generated_data\\google_trends_master.csv", row.names=FALSE)
+write.csv(google_trends_master, "Generated_data\\google_trends_master.csv", row.names=FALSE)
 ```
 
 
