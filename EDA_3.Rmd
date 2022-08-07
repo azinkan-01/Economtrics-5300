@@ -71,7 +71,7 @@ We also have a lot of *un-measurable* high level variables that are related to s
 
 All of these variables can play into the Google Search traffic but they *dont* impact the score card release date.  
 
-The only thing that need's to control for in this case is time or seasonality as anything that changes over time is a potential source of endogeneity for a time related event.  
+The only thing that needs to be controlled in this case, is time or seasonality as anything that changes over time is a potential source of endogeneity for a time related event.  
 
 *** 
 $Note:$
@@ -81,15 +81,15 @@ The Scorecard policy is implemented at a particular time, and looking at how the
 
 
 # Variable Selection
-There are a lot of variables in this data set available for use, however many of which do not have an intuitive or direct connection to Google search volumes or the release of the College Score Card. Before I go into EDA and modeling I want to reduce our data to a more concise and targeted variable set. 
+There are a lot of variables in this data set available for use, however many of which do not have an intuitive or direct connection to Google search volumes or the release of the College Score Card. Before I go into EDA and modeling, I want to reduce our data to a more concise and targeted variable set. 
 
 #### _Removal of PCIP Variables_
-The *PCIC* or "Percentage of degrees awarded in a {specific field}" variables are  high column count but low in explanatory value, at least for our research question. Intuitively I cant reason how or why the percentage of degrees awarded for a particular field would be at all related to Google search traffic for a University, nor would it impact when the score card was released.
+The *PCIC* or "Percentage of degrees awarded in a {specific field}" variables are  high column count but low in explanatory value, at least for our research question. Intuitively, I can't reason how or why the percentage of degrees awarded for a particular field would be at all related to Google search traffic for a University, nor would it impact when the score card was released.
 
 I'm also making the assumption that College score card does _not_ cater towards specific programs, thus it does not disproportional generate more searches for a specific type of program. 
 
-Just for good measure im going to run a very simply linear model to see if there are any variables worth looking into more. 
-From the results (below) i conclude that these variables do not have individual or cumulative explanatory power over our dependent variable (search volume).
+Just for good measure I'm going to run a very simply linear model to see if there are any variables worth looking into more. 
+From the results (below) I conclude that these variables do not have individual or cumulative explanatory power over our dependent variable (search volume).
 
 $Note:$ Removing these variables from analysis. 
 ```{r, echo= FALSE}
@@ -113,7 +113,7 @@ Additionally, I want to remove proportional race variables from our data set. Wh
 
 The proportion of race is also a variable that would change every year, and given that our search volumes change weekly, and these variables are in a static form it doesn't help give much insight to how search rates change, based on a changing demographic. 
 
-I'm choosing to keep the college "race/ gender flagged" variables though as this is likely to be a more constant race indicator less subject to change over time. 
+I'm choosing to keep the college "race/ gender flagged" variables as this is likely to be a more constant race indicator less subject to change over time. 
 
 $Note:$ Removing these variables from analysis.   
 ```{r, echo= FALSE}
@@ -130,9 +130,9 @@ df <- df %>%
 ```
 
 #### _Remove High % NULL Columns_
-Next I want to remove any variables that have a high amount of nulls records. While our time series trends data contains many observations, our school features contain less than 2k observations (One per school). Introducing measures that have a high proportion of NULL records can quickly reduce our sample size and add unwanted context to our analysis.
+Next, I want to remove any variables that have a high amount of nulls records. While our time series trends data contains many observations, our school features contain less than 2k observations (one per school). Introducing measures that have a high proportion of NULL records can quickly reduce our sample size and add unwanted context to our analysis.
 
-My Null removal criteria is rather arbitrary, however im selecting a cut off at 25% Null, meaning that I'm rejecting any variables that have *more than 25% of schools* failing to report on them. 
+My Null removal criteria is rather arbitrary, however I'm selecting a cut off at 25% Null, meaning that I'm rejecting any variables that have *more than 25% of schools* failing to report on them. 
 
 ```{r, echo=FALSE}
 x <- map(df, ~mean(is.na(.))) 
@@ -145,7 +145,7 @@ y = as.data.frame(t(ty))
 
 ```
 
-Just for good measure I'm going to run a very simply linear model to see if there is any variables worth looking into more. 
+Just for good measure, I'm going to run a very simply linear model to see if there is any variables worth looking into more. 
 
 $Note:$ Most of these variables are related to (SAT & ACT Scores) which I don't find particularly helpful for this analysis either. There is however information pertaining to "Avg Net School Price" which could be a driving factor in search trends. As a result I've  removed SAT and ATC variables from analysis. 
 ```{r, echo= FALSE}
@@ -162,7 +162,7 @@ From the results (above) I conclude that these variables do not have individual 
 
 ***
 
-Looking more closely into the "Avg Net School Price" variables *Pct.Valid* statistic (below) I find that there variables only consist of **~ 30% -60%** viable records telling me that majority of the data for these variables are NA.
+Looking more closely into the "Avg Net School Price" variables *Pct.Valid* statistic (below) I find that there variables only consist of **~ 30% -60%** viable records, telling me that majority of the data for these variables are NA.
 
 ```{r, echo=FALSE}
 temp_df <- df %>% 
@@ -258,7 +258,7 @@ ggplot(df, aes(x= md_reported_ern_10yr)) + geom_density()
 This graph represents the density of *median earnings of graduates ten years after graduation for each college*.
 Density in this case is the `count` of colleges that fall in that earning bin.
 
-We can see that this data is skewed to the right, indicating that while most schools "median earning 10 years after graduation" tends to fall right around $40,000 we have some outlire schools who report very high earnings above 150K.
+We can see that this data is skewed to the right, indicating that while most schools "median earning 10 years after graduation" tends to fall right around $40,000. We do have some outlire schools who report very high earnings above 150K.
 
 $Note:$ a high concentration at ~ 55K threshold. Data is self reported and I theorize that 55K is often whats input for any salary range between 50K - 60K. 
 
@@ -336,7 +336,7 @@ This table shows the proportion of records that fall into each bucket.
 freq(df$after_score_card, report.nas = FALSE, cumul = FALSE)
 ```
 
-$Note:$ Uur sample is lopsided (~80% of the records are before the score card)
+$Note:$ Our sample is lopsided (~80% of the records are before the score card)
 Typically I would adjust for this using `SMOTE()` under_sampling (However R wont load the SMOTE function at the moment)
 
 ***
@@ -376,7 +376,7 @@ To draw attention to a few interesting metrics:
 - Most of our data is populated without NA's records be design
 - Median earning range form 16K to 166K with a mean at ~ 50
 - we have a university where 98% of its students receive Pell Grant (intesting stat)
-- net avg priving ranges from 0 to 45774.00 wiht a mean of 14079.67
+- net avg priving ranges from 0 to 45774.00 with a mean of 14079.67
 
 ***
 
@@ -475,7 +475,7 @@ ggplot(data=agg, aes( y = log_mean_10_yr_earnings, x = NPT4_PRIV))+
 
 Note that there does not appear to be any sort of polynomial shape to our plot, so this does not suggest exploring other non linear models to describe the relationship.
 
-This does however suggest that I should be including the prive related variables in my models so that I dont add omitted variable bias to my earnings variable.  
+This does, however, suggest that I should be including the price related variables in my models so that I don't add omitted variable bias to my earnings variable.  
 
 ***
 
@@ -489,7 +489,7 @@ m1 <- feols(log_mean_10_yr_earnings ~ I(NPT4_PRIV/ 1000), data = agg)
 etable(m1, digits = 3)
 ```
 
-$Note:$ This statisticaly significant coefficient would indicate that a for each additional **$1000** spend on school your *log(median earnings)* would increase by a **0.018**  which is approximately **1.8%** increase in expected earnings. The price of school is in no way correlated to the Score Card being released, however we should add the *NPT4_PRIV* variable to our model as it is obviously correlated to *earnings* which is central to our study. 
+$Note:$ This statisticaly significant coefficient would indicate that for each additional **$1000** spent on school your *log(median earnings)* would increase by a **0.018**  (which is approximately **1.8%** increase in expected earnings). The price of school is in no way correlated to the Score Card being released, however we should add the *NPT4_PRIV* variable to our model as it is obviously correlated to *earnings* which is central to our study. 
 
 ***
 
@@ -510,11 +510,11 @@ This model suggest that we have three statistically significant variables. 2 at 
 - NPT4_PRIV == 2.98e-7*
 - start_of_week == -0.0007***
 
-The Model suggest that after the college score card was release there is a .228 index point increase relative to before the score card. This would imply that the college score card increased traffic. However this doesn't help answer how it different between *high and low* ranking schools , which is our predominate focus. 
+The Model suggest that after the college score card was release there is a .228 index point increase relative to before the score card. This would imply that the college score card increased traffic. However, this doesn't help answer how it different between *high and low* ranking schools , which is our predominate focus. 
 
 
 ***
-Additionally I was suprised that the *log_mean_10_yr_earnings* wasnt significant.
+Additionally, I was surprised that the *log_mean_10_yr_earnings* wasn't significant.
 Using the wald() test to looking more closely at the effect of `log_mean_10_yr_earnings`.
 
 ```{r, echo=FALSE}
@@ -543,7 +543,7 @@ $Note:$ We don't see anything suggesting an important relationship between that 
 ***
 
 #### _Adding interaction terms_
-Lastly to dig into to focus of our research questions and explore how interest shifted **after** the release of college score card for  high-earnings colleges **relative** to low-earnings I need to explore the interaction between those variables.
+Lastly, to dig into to focus of our research questions and explore how interest shifted **after** the release of college score card for  high-earnings colleges **relative** to low-earnings I need to explore the interaction between those variables.
 
 ```{r, warning=FALSE, message=FALSE}
 m2 <- feols(md_wk_std_idx ~ after_score_card + low_ern_school + low_ern_school:after_score_card + NPT4_PRIV + start_of_week, data = df)
@@ -570,15 +570,16 @@ _Interaction Term_:
 "after_score_cardTRUE x low_ern_schoolTRUE" = **0.080*****
 
 -This is the **difference** in the effect of the scorecard variable **between** *low and high earning schools*
-_The effect of releasing the *college score card* on *Google search volumes* is **0.080** points **higher for low earning schools** than it is for **higher earning colleges*.
+-The effect of releasing the *college score card* on *Google search volumes* is **0.080** points **higher for low earning schools** than it is for **higher earning colleges*.
 
-$Take Away:$ The effect of the score card on *Google search volumes* is **higher for low earning colleges** than it is for **higher earning colleges**.
+$Take Away:$ The effect of the score card on *Google search volumes* is *higher for low earning colleges* than it is for **higher earning colleges**.
 
 $Note:$This is statistical significant at the **0.1%** level
 
 ***
 
 _The over all effect_:
+
 In this case for the **low earning colleges** (0.188 + 0.080 = 0.268) would imply that the effect of releasing the college score card is **0.268 points higher** than before college score card for **low earning colleges**. 
 
 $Take Away:$ This increases search volumes for the low earning columns
@@ -587,6 +588,6 @@ $Note$: Findings are statistical significant when regressed on the the Google se
 
 ***
 
-$OverAllEffect:$ When the college score card released it increase search traffic for both the low and high earning colleges, however it increased the search traffic for low earning schools more so that it did for high earning schools.
+$OverAllEffect:$ When the college score card released it cause and increased in search traffic for both the **low and high earning** colleges, but it increased the search traffic for low earning schools **more** than it did for high earning schools.
 
-$Note$: Findings are statistical significant
+$Note$: Findings are statistical significant at the 0.1% level.
