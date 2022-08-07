@@ -181,9 +181,29 @@ library(tidyr)
 library(lubridate)</code></pre>
 <div id="data-transformation-for-score-card-data" class="section level2">
 <h2>Data Transformation for Score Card Data</h2>
+<div id="loading-the-initial-data" class="section level4">
+<h4><em>Loading the initial data</em></h4>
+<pre class="r"><code># Running the raw data
+# Striping the Nulls to NA Values
+DataDictRaw &lt;-  read.csv(&quot;Data_Exploration/CollegeScorecardDataDictionary.csv&quot;, na.strings = c(&quot;&quot;,&quot;NA&quot;,&quot;NULL&quot;,NULL))
+IDNameLinkRaw &lt;- read.csv(&quot;Data_Exploration/id_name_link.csv&quot;, na.strings = c(&quot;&quot;,&quot;NA&quot;,&quot;NULL&quot;,NULL))
+ScoreCardDataRaw &lt;- read.csv(&quot;Data_Exploration/Most_Recent_Cohorts_Scorecard_Elements.csv&quot;, na.strings = c(&quot;&quot;,&quot;NA&quot;,&quot;NULL&quot;,NULL))
+TrendsUpToFinishRaw &lt;- read.csv(&quot;Data_Exploration/trends_up_to_finish.csv&quot;, na.strings = c(&quot;&quot;,&quot;NA&quot;,&quot;NULL&quot;,NULL))
+TrendsUpToInter_1_Raw &lt;- read.csv(&quot;Data_Exploration/trends_up_to_inter_1.csv&quot;, na.strings = c(&quot;&quot;,&quot;NA&quot;,&quot;NULL&quot;,NULL))
+TrendsUpToInter_2_Raw &lt;- read.csv(&quot;Data_Exploration/trends_up_to_inter_2.csv&quot;, na.strings = c(&quot;&quot;,&quot;NA&quot;,&quot;NULL&quot;,NULL))
+TrendsUpToInter_3_Raw &lt;- read.csv(&quot;Data_Exploration/trends_up_to_inter_3.csv&quot;, na.strings = c(&quot;&quot;,&quot;NA&quot;,&quot;NULL&quot;,NULL))
+TrendsUpToInter_4_Raw &lt;- read.csv(&quot;Data_Exploration/trends_up_to_inter_4.csv&quot;, na.strings = c(&quot;&quot;,&quot;NA&quot;,&quot;NULL&quot;,NULL))
+TrendsUpToInter_5_Raw &lt;- read.csv(&quot;Data_Exploration/trends_up_to_inter_5.csv&quot;, na.strings = c(&quot;&quot;,&quot;NA&quot;,&quot;NULL&quot;,NULL))
+TrendsUpToInter_6_Raw &lt;- read.csv(&quot;Data_Exploration/trends_up_to_inter_6.csv&quot;, na.strings = c(&quot;&quot;,&quot;NA&quot;,&quot;NULL&quot;,NULL))
+TrendsUpToUmRaw &lt;- read.csv(&quot;Data_Exploration/trends_up_to_UM.csv&quot;, na.strings = c(&quot;&quot;,&quot;NA&quot;,&quot;NULL&quot;,NULL))
+TrendsUpToUphoenixRaw &lt;- read.csv(&quot;Data_Exploration/trends_up_to_UPhoenix.csv&quot;, na.strings = c(&quot;&quot;,&quot;NA&quot;,&quot;NULL&quot;,NULL))
+TrendsUpToUtRaw &lt;- read.csv(&quot;Data_Exploration/trends_up_to_UT.csv&quot;, na.strings = c(&quot;&quot;,&quot;NA&quot;,&quot;NULL&quot;,NULL))
+TrendsUpToUtmbRaw &lt;- read.csv(&quot;Data_Exploration/trends_up_to_UTMB.csv&quot;, na.strings = c(&quot;&quot;,&quot;NA&quot;,&quot;NULL&quot;,NULL))
+TrendsUpToYorktowneRaw &lt;- read.csv(&quot;Data_Exploration/trends_up_to_Yorktowne.csv&quot;, na.strings = c(&quot;&quot;,&quot;NA&quot;,&quot;NULL&quot;,NULL))</code></pre>
+</div>
 <div id="drop-opeids-that-are-not-unique-observations" class="section level4">
 <h4><em>Drop opeid’s that are not unique observations</em></h4>
-<p>This is in an effort to remove any <code>many to one</code> relationships when joining OPEID</p>
+<p>I’m doing this to avoid any <code>many to one</code> relationships when joining <strong>OPEID</strong></p>
 <pre class="r"><code>Unique_opeid &lt;- ScoreCardDataRaw %&gt;% 
   select(OPEID) %&gt;% 
   group_by(OPEID) %&gt;% 
@@ -197,11 +217,11 @@ Unique_opeid_filter &lt;- Unique_opeid$OPEID
 
 # filter raw set by the opeids that have unique names
 ScoreCardDataStage &lt;- filter(ScoreCardDataRaw, OPEID %in% Unique_opeid_filter)</code></pre>
-<p>7804 records -&gt; 7738 records</p>
 </div>
 <div id="remove-privacysuppressed-earnings-data" class="section level4">
 <h4><em>Remove “PrivacySuppressed” earnings data</em></h4>
-<p>This data is directly related to college earnings (our dependent variable), thus we will want to use only known values to regress on. Null values in this field don’t shed any light on how different independent variables impact an unknown depended variable.</p>
+<p>Some records provided in this data set have earnings data either NA or marked as “PrivacySuppressed”. Because this variable is our measurement for college earnings which is a central part of our research question, we need to only work with known values for this.</p>
+<p>Null values in this field don’t shed any light on how different earnings impact search rate if earning are unknown.</p>
 <pre class="r"><code># Remove &quot;PrivacySuppressed&quot; data 
 NotSuppressed &lt;- ScoreCardDataStage %&gt;% 
   select(OPEID, md_earn_wne_p10.REPORTED.EARNINGS) %&gt;% 
@@ -212,11 +232,10 @@ NotSuppressed_filter &lt;- NotSuppressed$OPEID
 
 # Remove Suppressed Earnings Data
 ScoreCardDataStage &lt;- filter(ScoreCardDataStage, OPEID %in% NotSuppressed_filter)</code></pre>
-<p>7738 records -&gt; 5584 records 2154 records removed</p>
 </div>
 <div id="drop-null-values-in-earnings-data" class="section level4">
 <h4><em>Drop NULL values in earnings data</em></h4>
-<p>Want to drop null values for the same reason we want to drop the suppressed data</p>
+<p>I want to drop null values for the same reason we want to drop the suppressed data. Null value here don’t provide any use to this research question.</p>
 <pre class="r"><code>NotNull &lt;- ScoreCardDataStage %&gt;% 
   select(OPEID, md_earn_wne_p10.REPORTED.EARNINGS) %&gt;% 
   filter(!is.na(md_earn_wne_p10.REPORTED.EARNINGS))
@@ -226,10 +245,10 @@ NotNull_Filter &lt;- NotNull$OPEID
 
 # Remove Suppressed Earnings Data
 ScoreCardDataStage &lt;- filter(ScoreCardDataStage, OPEID %in% NotNull_Filter)</code></pre>
-<p>5584 records -&gt; 5584 records</p>
 </div>
 <div id="renaming" class="section level4">
 <h4><em>Renaming</em></h4>
+<p>Doing a minimal amount of renaming and mutations here but it makes these variables esier to work with later on.</p>
 <pre class="r"><code>ScoreCardDataStage &lt;- ScoreCardDataStage %&gt;% 
   mutate(md_earn_wne_p10.REPORTED.EARNINGS = as.numeric(ScoreCardDataStage$md_earn_wne_p10.REPORTED.EARNINGS))
 
@@ -243,7 +262,7 @@ ScoreCardDataStage &lt;- ScoreCardDataStage %&gt;%
 <h2>Data Transformation For School Link Data</h2>
 <div id="drop-non-unique-opeids" class="section level4">
 <h4><em>Drop non unique opeid’s</em></h4>
-<p>Identify opeid’s with more than one unique school name many to 1 relationship with opeid (want to cut that out)</p>
+<p>Here I’m identify opeid’s with more than one unique school name associated as we dont want to have a <code>many to one</code> relationship with opeid when we make a mastered data set. We don’t want a <code>many to one</code> or <code>many to many</code> as this can cause records duplication.</p>
 <pre class="r"><code>Unique_schools &lt;- IDNameLinkRaw %&gt;% 
   select(opeid, schname) %&gt;% 
   group_by(opeid) %&gt;% 
@@ -256,10 +275,10 @@ school_filter &lt;- Unique_schools$opeid
 
 # filter raw set by the opeids that have unique names
 IDNameLinkStage &lt;- filter(IDNameLinkRaw, opeid %in% school_filter)</code></pre>
-<p>Starting with 3595 Schools Our first filter results in 3557 remaining schools 38 universities removed</p>
 </div>
 <div id="drop-non-unique-universities-names" class="section level4">
 <h4><em>Drop non unique Universities Names</em></h4>
+<p>Here I’m finding all the school names that are tied to more than one <strong>opeid</strong>. This is another instance where a <code>many to many</code> or <code>many to one</code> could cause duplication issues down stream.</p>
 <pre class="r"><code># Identify names that have more than one opeid
 unique_ids &lt;- IDNameLinkRaw %&gt;% 
   select(opeid, schname) %&gt;% 
@@ -273,11 +292,14 @@ school_filter &lt;- unique_ids$schname
 
 # apply another filter to staged set by filtering the opeids that have unique names
 IDNameLinkStage &lt;- filter(IDNameLinkStage, schname %in% school_filter)</code></pre>
-<p>This filter results in 3486 records, removing an additional 71 universities.</p>
 </div>
 <div id="filter-bachelor-degree-colleges" class="section level4">
 <h4><em>Filter bachelor degree colleges</em></h4>
-<p>Selecting Bachelors Primary Schools &amp; Bachelors Only Schools Bachelors Only Schools are by default Bachelors Primary</p>
+<p>Selecting Bachelors Primary Schools &amp; Bachelors Only Schools. Here I’m using <strong>PREDDEG &gt;= 3</strong> as schools that offer <em>primarily</em> bachelors degrees would consist of both primary degree categories 3 and 4.</p>
+<ul>
+<li>category 3 -&gt; primarily offer bachelors degrees</li>
+<li>category 4 -&gt; exclusively over bachelor degrees</li>
+</ul>
 <pre class="r"><code># Selecting Bachelors Primary Schools &amp; Bachelors Only Schools
 # Bachelors Only Schools are by default Bachelors Primary
 Bachelors_primary &lt;- ScoreCardDataStage %&gt;% 
@@ -289,11 +311,10 @@ bach_filter &lt;- Bachelors_primary$opeid
 
 # Remove non bachelors from our master id list
 IDNameLinkStage &lt;- filter(IDNameLinkStage, opeid %in% bach_filter)</code></pre>
-<p>This filter results in 1999 records, removing an additional 1487 universities.</p>
 </div>
 <div id="drop-privacysuppressed-earnings" class="section level4">
 <h4><em>Drop “PrivacySuppressed” earnings</em></h4>
-<p>This data is directly related to college earnings (our dependent variable), thus we will want to use only known values to regress on. Null values in this field dont shed any light on how different independent variables impact an unknown depended variable.</p>
+<p>Some records provided in this data set have earnings data either NA or marked as “PrivacySuppressed”. Because this variable is our measurement for college earnings which is a central part of our research question, we need to only work with known values for this.</p>
 <pre class="r"><code># Remove &quot;PrivacySuppressed&quot; data 
 NotSuppressed &lt;- ScoreCardDataStage %&gt;% 
   select(opeid, md_reported_ern_10yr) %&gt;% 
@@ -304,11 +325,10 @@ NotSuppressed_filter &lt;- NotSuppressed$opeid
 
 # Remove Suppressed Earnings Data
 IDNameLinkStage &lt;- filter(IDNameLinkStage, opeid %in% NotSuppressed_filter)</code></pre>
-<p>This filter results in 1804 records, removing an additional 195 universities.</p>
 </div>
 <div id="drop-null-earnings" class="section level4">
 <h4><em>Drop Null earnings</em></h4>
-<p>Want to drop null values for the same reason we want to drop the suppressed data</p>
+<p>Drop null values for the same reason we want to drop the suppressed data</p>
 <pre class="r"><code>NotNull &lt;- ScoreCardDataStage %&gt;% 
   select(opeid, md_reported_ern_10yr) %&gt;% 
   filter(!is.na(md_reported_ern_10yr))
@@ -318,37 +338,31 @@ NotNull_Filter &lt;- NotNull$opeid
 
 # Remove Suppressed Earnings Data
 IDNameLinkStage &lt;- filter(IDNameLinkStage, opeid %in% NotNull_Filter)</code></pre>
-<p>This filter results in 1804 records, removing an additional 0 universities.</p>
 </div>
 </div>
 <div id="data-transformation-trend-data" class="section level2">
 <h2>Data Transformation Trend data</h2>
-</div>
-<div id="todo" class="section level1">
-<h1>TODO:</h1>
-<ul>
-<li>use month() from lubridate to pull the month out of your date variable</li>
-</ul>
 <div id="union-all-trend-data" class="section level4">
 <h4><em>Union All Trend Data</em></h4>
-<p>union all the Trends Data as one dataframe</p>
+<p>union all the Trends Data as one data frame to make it easier to work with.</p>
 <pre class="r"><code># Union the Trends Data
 TrendsAppendedDf &lt;- rbind(TrendsUpToInter_1_Raw, TrendsUpToInter_2_Raw, TrendsUpToInter_3_Raw, TrendsUpToInter_4_Raw, TrendsUpToInter_5_Raw, TrendsUpToInter_6_Raw, TrendsUpToUmRaw, TrendsUpToUphoenixRaw, TrendsUpToUtmbRaw, TrendsUpToUtmbRaw, TrendsUpToYorktowneRaw, TrendsUpToFinishRaw )</code></pre>
 </div>
 <div id="drop-duplicates" class="section level4">
 <h4><em>Drop Duplicates</em></h4>
-<p>because this is API generated trends data that has breaks when to many requests are generateed its very possible we have duplicate results. schid as it provided no meaning.</p>
+<p>Since this is API generated trends data that has breaks when to many requests are generated its very possible that when we resend a new request old records are loaded again, hence creating duplicates.</p>
+<p>Regardless if that’s the case we don’t want to have any duplicate records for this panel data set, and because the <em>schid</em> field has no known or understandable meaning im choosing to remove that field then only select distinct values across the full data frame.</p>
 <pre class="r"><code># Select remove the schid field (non unique) and no relationship
 Trends &lt;- TrendsAppendedDf %&gt;% 
   select( -c(&quot;schid&quot;))
 
 Trends &lt;- Trends %&gt;% 
   distinct()</code></pre>
-<p>This does in fact remove many duplicate records (30894)</p>
 </div>
 <div id="strip-dates" class="section level4">
 <h4><em>Strip Dates</em></h4>
-<p>Score card was added beginning of sept 2015</p>
+<p>Dates come in a text columns provided as a range of dates (ex: 2022-01-01 - 2022-01-07).In order to get a date value form this value im stripping the string partitioned by &quot; - &quot; and taking the first value as the start of the week that the trend data occurred. This date is converted to a date.time() value for easier use down stream.</p>
+<p>I then added a binary variable to indicate if the trend data pertains to before or after the College Score Card launch date (2015-09-01).</p>
 <pre class="r"><code># separate dates
 Trends &lt;- separate(Trends, col=monthorweek, into=c(&#39;start_of_week&#39;, &#39;end_of_week&#39;), sep=&#39; - &#39;)
 
@@ -363,12 +377,14 @@ Trends &lt;- Trends %&gt;%
 </div>
 <div id="no-null-dates" class="section level4">
 <h4><em>No Null Dates</em></h4>
-<p>As this question is related to the function of time we need to deal with the records that are not associated with a time frame. It should be noted that these records also lack any index information. Likely was complied from source incorrectly or reflects API querries where data was not available at that time.</p>
+<p>As this question is related to the function of time we need to deal with the records that are not associated with a time frame. It should be noted that these records also lack any index information. Likely this was complied from source incorrectly or reflects API queries where data was not available from the host.</p>
+<p>Regardless we need to remove these records as they provide no value to our analysis.</p>
 <pre class="r"><code>Trends &lt;- Trends %&gt;% 
   filter(!is.na(start_of_week))</code></pre>
 </div>
 <div id="make-indices-reasonably-comparable" class="section level4">
 <h4><em>Make Indices reasonably comparable</em></h4>
+<p>Here we are making the search index’s reasonably comparable across terms. To make the indices reasonably comparable we need to standardizing them for each term, by subtracting the mean and divide by the standard deviation.</p>
 <pre class="r"><code># Key Level Mean
 key_level_idx &lt;- Trends %&gt;% 
   select(schname,keyword,index, ) %&gt;% 
@@ -382,45 +398,46 @@ Trends &lt;- Trends %&gt;%
   mutate(standard_idx = (index-mean_index)/std_index) %&gt;% 
   select(schname, keyword, start_of_week,  standard_idx, after_score_card)</code></pre>
 </div>
-<div id="add-date-info" class="section level4">
-<h4><em>Add Date info</em></h4>
+<div id="add-month-info" class="section level4">
+<h4><em>Add Month info</em></h4>
+<p>Transforming the data value to a monthly expression in case i want to do analysis at the level.</p>
 <pre class="r"><code># add month
 Trends &lt;- Trends %&gt;% 
-  mutate(start_of_month = format(as.Date(start_of_week), &quot;%Y-%m&quot;))</code></pre>
+  mutate(start_of_month = format(as.Date(start_of_week), &quot;%Y-%m-1&quot;))</code></pre>
 </div>
 <div id="aggregate-the-trends-data" class="section level4">
 <h4><em>Aggregate the Trends Data</em></h4>
-<p>grouping by shool-week Why?: we need to keep college to tie back what colleges and associated measues imapct searches, we’ll group by week as the index is recorded is weekly intervals (keep more data granularity)</p>
+<p>Here im aggregating the results for Google trends data, selecting to group by school &amp; week. Im selecting this level as i want to resolve the number of key words tracked per school. come schools track 1 work where others track 7.</p>
+<p>In order to farther standardized the data set and make metrics comparable across shool i just just want the average seach per school per week. This allows me to keep college name so that i can tie colleges together and join the associated measures.Im choseing the keep this data at the weekly level as it retains more granularity and more data points for us to workwith in the analysis.</p>
+<p>Data can always be aggregated at a higher level down stream if need be.</p>
 <pre class="r"><code>Trends &lt;- Trends %&gt;% 
   group_by(schname, after_score_card, start_of_week, start_of_month) %&gt;%
   summarise(md_wk_std_idx = median(standard_idx)) %&gt;%
   arrange(., start_of_week )</code></pre>
 <pre><code>## `summarise()` has grouped output by &#39;schname&#39;, &#39;after_score_card&#39;, &#39;start_of_week&#39;. You can override using the `.groups` argument.</code></pre>
 </div>
+</div>
 <div id="master-data" class="section level2">
 <h2>Master Data</h2>
 <div id="school-id-metrics" class="section level4">
 <h4><em>School ID &amp; Metrics</em></h4>
-<p>Using inner join to ensure that we have a complete data set in terms of unitid and opeid that match across or school key and our school data points.</p>
+<p>Using inner join to ensure that we have a matching data set in terms of unitid and opeid. Inner join helps us filter out anything that doesn’t match between the two data sets.</p>
 <pre class="r"><code>school_master &lt;- IDNameLinkStage %&gt;% 
   inner_join(ScoreCardDataStage, by = c(&quot;opeid&quot;, &quot;unitid&quot;))</code></pre>
-<p>our final data set for analysis is now comprised of a total of 1798 records by 123 variables.</p>
-<pre class="r"><code>dim(school_master)</code></pre>
-<pre><code>## [1] 1798  123</code></pre>
 </div>
 <div id="google-trends-school-id" class="section level4">
 <h4><em>Google Trends &amp; School ID</em></h4>
-<p>Using inner join to ensure that we have a only matching school names across our school id info and our google trends info.</p>
+<p>Using inner join to ensure that we have a only matching school names across our school id info and our google trends info. Joining on the <strong>schname</strong> across data sets. Both of these staged table are already at the unique <strong>schname</strong> level.</p>
 <pre class="r"><code>google_trends_master &lt;- IDNameLinkStage %&gt;% 
   inner_join(Trends, by = c(&quot;schname&quot;))</code></pre>
 </div>
 </div>
 <div id="csv-out-put" class="section level2">
 <h2>CSV Out Put</h2>
-<p>Holding out our mutation steps in this code and producing one school data frame and one goolg etrends data set allows for faster and cleaner downstream modeling.</p>
+<p>Producing an output file as a csv that can be stored as prep file.</p>
+<p>By doing this I can simply read in the prep file down stream and not be required to reproduce all data proccessing steps. (saves time and computation while doing analysis)</p>
 <pre class="r"><code>write.csv(school_master, &quot;C:\\Users\\andre\\OneDrive\\R_Projects\\Economtrics-5300\\Generated_data\\school_master.csv&quot;, row.names=FALSE)</code></pre>
 <pre class="r"><code>write.csv(google_trends_master, &quot;C:\\Users\\andre\\OneDrive\\R_Projects\\Economtrics-5300\\Generated_data\\google_trends_master.csv&quot;, row.names=FALSE)</code></pre>
-</div>
 </div>
 
 
